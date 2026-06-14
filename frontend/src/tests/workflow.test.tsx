@@ -4,7 +4,7 @@ import { describe, expect, it } from "vitest";
 
 import type { ApiClient } from "../api/client";
 import { App } from "../routes/App";
-import type { Job, Project, QueueSummary, ScriptResponse, TtsSettings } from "../types/api";
+import type { Job, Project, QueueSummary, RuntimeSettings, RuntimeStatus, ScriptResponse, TtsSettings } from "../types/api";
 
 const now = "2026-06-14T00:00:00Z";
 
@@ -57,8 +57,40 @@ function makeClient(): ApiClient {
     queue_positions: { "job-1": 1 },
   };
   const settings: TtsSettings = {
-    active_engine: "fake",
-    available_engines: ["fake", "chatterbox"],
+    active_engine: "chatterbox",
+    available_engines: ["chatterbox"],
+  };
+  const runtimeSettings: RuntimeSettings = {
+    values: {
+      active_tts_engine: "chatterbox",
+      chatterbox_device: "auto",
+      max_script_size_bytes: 1000000,
+      max_chunk_chars: 600,
+      max_chunks: 1000,
+      chatterbox_max_concurrent_jobs: 1,
+      audio_merge_max_concurrent_jobs: 1,
+      max_active_jobs_total: 10,
+      storage_root: "data/storage",
+      frontend_origin: "http://localhost:5173",
+      serve_frontend: true,
+    },
+    editable_fields: [
+      "active_tts_engine",
+      "chatterbox_device",
+      "max_chunk_chars",
+      "max_chunks",
+      "chatterbox_max_concurrent_jobs",
+    ],
+    available_engines: ["chatterbox"],
+    reload_required: false,
+    runtime_status: "idle",
+    last_reload_error: null,
+  };
+  const runtimeStatus: RuntimeStatus = {
+    status: "ready",
+    active_engine: "chatterbox",
+    reload_required: false,
+    last_reload_error: null,
   };
   return {
     createProject: async () => project,
@@ -89,6 +121,15 @@ function makeClient(): ApiClient {
     uploadScript: async () => script,
     getQueue: async () => queue,
     getTtsSettings: async () => settings,
+    getSettings: async () => runtimeSettings,
+    saveSettings: async (values) => ({
+      ...runtimeSettings,
+      values: { ...runtimeSettings.values, ...values },
+      reload_required: true,
+      runtime_status: "reload_pending",
+    }),
+    reloadSettings: async () => runtimeStatus,
+    getRuntimeStatus: async () => runtimeStatus,
     finalAudioUrl: (projectId) => `http://api.test/api/v1/projects/${projectId}/audio/final`,
     audioStreamUrl: (projectId) => `http://api.test/api/v1/projects/${projectId}/audio/stream`,
   };
@@ -171,5 +212,44 @@ describe("workflow UI", () => {
 
     expect(await screen.findByText("job-1")).toBeInTheDocument();
     expect(screen.getByText("Queue summary unavailable.")).toBeInTheDocument();
+  });
+
+  it("saves runtime settings and reloads the backend engine", async () => {
+    render(
+      <MemoryRouter initialEntries={["/settings"]}>
+        <App client={makeClient()} />
+      </MemoryRouter>,
+    );
+
+    expect(await screen.findByLabelText("TTS engine")).toHaveValue("chatterbox");
+    fireEvent.change(screen.getByLabelText("Chatterbox device"), { target: { value: "cpu" } });
+    fireEvent.change(screen.getByLabelText("Max chunk chars"), { target: { value: "320" } });
+    fireEvent.click(screen.getByRole("button", { name: "Save settings" }));
+
+    expect(await screen.findByText("Reload required")).toBeInTheDocument();
+    fireEvent.click(screen.getByRole("button", { name: "Reload backend engine" }));
+    expect(await screen.findByText("Runtime ready: chatterbox")).toBeInTheDocument();
+  });
+
+  it("shows runtime reload failures on the settings page", async () => {
+    const client = makeClient();
+    client.reloadSettings = async () => ({
+      status: "failed",
+      active_engine: "chatterbox",
+      reload_required: true,
+      last_reload_error: "model load failed",
+    });
+
+    render(
+      <MemoryRouter initialEntries={["/settings"]}>
+        <App client={client} />
+      </MemoryRouter>,
+    );
+
+    await screen.findByLabelText("TTS engine");
+    fireEvent.click(screen.getByRole("button", { name: "Save settings" }));
+    fireEvent.click(await screen.findByRole("button", { name: "Reload backend engine" }));
+
+    expect(await screen.findByText("model load failed")).toBeInTheDocument();
   });
 });

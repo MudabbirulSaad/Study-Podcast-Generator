@@ -36,8 +36,33 @@ Duplicate active job response:
 - `GET /projects/{project_id}/audio/stream`
 
 ## Settings
-- `GET /settings/tts-engines`
-- `PUT /settings/tts-engine`
+- `GET /settings`
+- `PUT /settings`
+- `POST /settings/reload`
+- `GET /settings/runtime-status`
+- `GET /settings/tts-engines` remains as a compatibility read.
+- `PUT /settings/tts-engine` remains as a compatibility write.
+
+`GET /settings` returns:
+```json
+{
+  "values": {
+    "active_tts_engine": "chatterbox",
+    "chatterbox_device": "auto"
+  },
+  "editable_fields": ["active_tts_engine", "chatterbox_device"],
+  "available_engines": ["chatterbox"],
+  "reload_required": false,
+  "runtime_status": "idle",
+  "last_reload_error": null
+}
+```
+
+`PUT /settings` accepts an allowlisted partial `values` object. It persists settings to SQLite and `.env`, then returns `reload_required: true`.
+
+`POST /settings/reload` rebuilds the backend TTS runtime without restarting FastAPI. It returns `400` if jobs are `queued`, `running`, or `cancel_requested`.
+
+`GET /settings/runtime-status` returns the current runtime status: `idle`, `reload_pending`, `reloading`, `ready`, or `failed`.
 
 ## Error Envelope
 ```json

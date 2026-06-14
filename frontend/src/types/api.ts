@@ -53,3 +53,18 @@ export type TtsSettings = {
   available_engines: string[];
 };
 
+export type RuntimeSettings = {
+  values: Record<string, string | number | boolean>;
+  editable_fields: string[];
+  available_engines: string[];
+  reload_required: boolean;
+  runtime_status: string;
+  last_reload_error: string | null;
+};
+
+export type RuntimeStatus = {
+  status: string;
+  active_engine: string;
+  reload_required: boolean;
+  last_reload_error: string | null;
+};

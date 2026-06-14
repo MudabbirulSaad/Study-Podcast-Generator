@@ -11,7 +11,13 @@ def test_serves_frontend_index_when_dist_exists(tmp_path: Path) -> None:
     dist.mkdir()
     (dist / "index.html").write_text("<h1>StudyCast</h1>", encoding="utf-8")
     client = TestClient(
-        create_app(Settings(database_path=tmp_path / "app.sqlite3", frontend_dist_path=dist))
+        create_app(
+            Settings(
+                database_path=tmp_path / "app.sqlite3",
+                env_file_path=tmp_path / ".env",
+                frontend_dist_path=dist,
+            )
+        )
     )
 
     response = client.get("/")
@@ -25,7 +31,13 @@ def test_react_router_fallback_serves_index_for_non_api_route(tmp_path: Path) ->
     dist.mkdir()
     (dist / "index.html").write_text("<h1>StudyCast</h1>", encoding="utf-8")
     client = TestClient(
-        create_app(Settings(database_path=tmp_path / "app.sqlite3", frontend_dist_path=dist))
+        create_app(
+            Settings(
+                database_path=tmp_path / "app.sqlite3",
+                env_file_path=tmp_path / ".env",
+                frontend_dist_path=dist,
+            )
+        )
     )
 
     response = client.get("/jobs")
@@ -39,7 +51,13 @@ def test_api_routes_still_return_json_when_frontend_is_served(tmp_path: Path) ->
     dist.mkdir()
     (dist / "index.html").write_text("<h1>StudyCast</h1>", encoding="utf-8")
     client = TestClient(
-        create_app(Settings(database_path=tmp_path / "app.sqlite3", frontend_dist_path=dist))
+        create_app(
+            Settings(
+                database_path=tmp_path / "app.sqlite3",
+                env_file_path=tmp_path / ".env",
+                frontend_dist_path=dist,
+            )
+        )
     )
 
     response = client.get("/api/v1/projects")
@@ -53,7 +71,13 @@ def test_missing_api_route_returns_json_not_frontend_html(tmp_path: Path) -> Non
     dist.mkdir()
     (dist / "index.html").write_text("<h1>StudyCast</h1>", encoding="utf-8")
     client = TestClient(
-        create_app(Settings(database_path=tmp_path / "app.sqlite3", frontend_dist_path=dist))
+        create_app(
+            Settings(
+                database_path=tmp_path / "app.sqlite3",
+                env_file_path=tmp_path / ".env",
+                frontend_dist_path=dist,
+            )
+        )
     )
 
     response = client.get("/api/v1/not-a-route")

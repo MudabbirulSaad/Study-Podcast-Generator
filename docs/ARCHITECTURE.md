@@ -20,3 +20,10 @@ The backend uses hexagonal architecture. Domain and application layers define th
 
 ## Startup Recovery
 On backend startup, jobs in `queued`, `running`, or `cancel_requested` are marked `interrupted` with message: "Server restarted before this job completed."
+
+## Runtime Settings And Engine Reload
+Runtime settings are exposed through an allowlisted API surface. Settings are persisted to SQLite and written to `.env`; startup applies OS environment variables over `.env`, `.env` over SQLite settings, and SQLite settings over code defaults.
+
+FastAPI remains running when settings change. A container-owned runtime reload rebuilds the concrete TTS engine, generation runner, worker pool, and queue concurrency values. Reload is rejected while any job is `queued`, `running`, or `cancel_requested`. If reload fails, the previous working runtime remains active and the failure is reported through the runtime-status API.
+
+Chatterbox is the production-style local engine. The deterministic fake engine is reserved for development and tests and is exposed only when `ENABLE_DEV_TTS_ENGINE=true`.

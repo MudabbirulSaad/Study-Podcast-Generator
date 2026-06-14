@@ -3,7 +3,7 @@ import { useEffect, useMemo, useState } from "react";
 import { NavLink, Route, Routes } from "react-router-dom";
 
 import { apiClient, type ApiClient } from "../api/client";
-import type { Job, Project, QueueSummary, ScriptResponse, TtsSettings } from "../types/api";
+import type { Job, Project, QueueSummary, RuntimeSettings, RuntimeStatus, ScriptResponse } from "../types/api";
 
 type AppProps = {
   client?: ApiClient;
@@ -276,21 +276,158 @@ function JobsRoute({ client }: { client: ApiClient }) {
 }
 
 function SettingsRoute({ client }: { client: ApiClient }) {
-  const [settings, setSettings] = useState<TtsSettings | null>(null);
+  const [settings, setSettings] = useState<RuntimeSettings | null>(null);
+  const [values, setValues] = useState<RuntimeSettings["values"]>({});
+  const [runtime, setRuntime] = useState<RuntimeStatus | null>(null);
+  const [message, setMessage] = useState("");
 
   useEffect(() => {
-    void client.getTtsSettings().then(setSettings);
+    void client.getSettings().then((loaded) => {
+      setSettings(loaded);
+      setValues(loaded.values);
+    });
   }, [client]);
 
+  useEffect(() => {
+    if (!runtime || !["reload_pending", "reloading"].includes(runtime.status)) {
+      return;
+    }
+    const timer = window.setInterval(async () => {
+      const next = await client.getRuntimeStatus();
+      setRuntime(next);
+      if (["ready", "failed"].includes(next.status)) {
+        window.clearInterval(timer);
+      }
+    }, 1000);
+    return () => window.clearInterval(timer);
+  }, [client, runtime]);
+
+  function updateValue(key: string, value: string | boolean) {
+    const current = values[key];
+    const nextValue = typeof current === "number" ? Number(value) : value;
+    setValues((existing) => ({ ...existing, [key]: nextValue }));
+  }
+
+  async function saveSettings() {
+    setMessage("");
+    const saved = await client.saveSettings(values);
+    setSettings(saved);
+    setValues(saved.values);
+    setRuntime({
+      status: saved.runtime_status,
+      active_engine: String(saved.values.active_tts_engine),
+      reload_required: saved.reload_required,
+      last_reload_error: saved.last_reload_error,
+    });
+  }
+
+  async function reloadBackendEngine() {
+    setMessage("");
+    const status = await client.reloadSettings();
+    setRuntime(status);
+    const refreshed = await client.getSettings();
+    setSettings(refreshed);
+    setValues(refreshed.values);
+  }
+
+  const runtimeStatus = runtime?.status ?? settings?.runtime_status ?? "idle";
+  const activeEngine = runtime?.active_engine ?? String(values.active_tts_engine ?? "");
+  const reloadRequired = runtime?.reload_required ?? settings?.reload_required ?? false;
+  const reloadError = runtime?.last_reload_error ?? settings?.last_reload_error;
+
   return (
-    <section className="workspace-panel">
+    <section className="workspace-panel flow-grid">
       <p className="eyebrow">Settings</p>
       <h1>TTS Settings</h1>
-      <p>Fake TTS is the default. Chatterbox can be enabled after local setup.</p>
+      <p>Chatterbox is the local TTS engine. The development test engine appears only when enabled.</p>
       {settings && (
-        <p className="status-line">
-          Active: {settings.active_engine}. Available: {settings.available_engines.join(", ")}.
-        </p>
+        <>
+          <section className="data-section" aria-label="Runtime status">
+            <h2>Runtime</h2>
+            {reloadRequired && <p className="message">Reload required</p>}
+            {runtimeStatus === "ready" && <p className="status-line">Runtime ready: {activeEngine}</p>}
+            {runtimeStatus !== "ready" && <p className="status-line">Runtime status: {runtimeStatus}</p>}
+            {reloadError && <p className="message">{reloadError}</p>}
+          </section>
+
+          <section className="data-section settings-grid" aria-label="Editable settings">
+            <label>
+              TTS engine
+              <select
+                aria-label="TTS engine"
+                value={String(values.active_tts_engine ?? "")}
+                onChange={(event) => updateValue("active_tts_engine", event.target.value)}
+              >
+                {settings.available_engines.map((engine) => (
+                  <option key={engine} value={engine}>
+                    {engine}
+                  </option>
+                ))}
+              </select>
+            </label>
+            <label>
+              Chatterbox device
+              <select
+                aria-label="Chatterbox device"
+                value={String(values.chatterbox_device ?? "auto")}
+                onChange={(event) => updateValue("chatterbox_device", event.target.value)}
+              >
+                <option value="auto">auto</option>
+                <option value="cpu">cpu</option>
+                <option value="cuda">cuda</option>
+              </select>
+            </label>
+            {[
+              ["max_script_size_bytes", "Max script size bytes"],
+              ["max_chunk_chars", "Max chunk chars"],
+              ["max_chunks", "Max chunks"],
+              ["chatterbox_max_concurrent_jobs", "Chatterbox max concurrent jobs"],
+              ["audio_merge_max_concurrent_jobs", "Audio merge max concurrent jobs"],
+              ["max_active_jobs_total", "Max active jobs total"],
+            ].map(([key, label]) => (
+              <label key={key}>
+                {label}
+                <input
+                  aria-label={label}
+                  type="number"
+                  value={Number(values[key] ?? 0)}
+                  onChange={(event) => updateValue(key, event.target.value)}
+                />
+              </label>
+            ))}
+            <label>
+              Storage root
+              <input
+                aria-label="Storage root"
+                value={String(values.storage_root ?? "")}
+                onChange={(event) => updateValue("storage_root", event.target.value)}
+              />
+            </label>
+            <label>
+              Frontend origin
+              <input
+                aria-label="Frontend origin"
+                value={String(values.frontend_origin ?? "")}
+                onChange={(event) => updateValue("frontend_origin", event.target.value)}
+              />
+            </label>
+            <label className="checkbox-line">
+              <input
+                aria-label="Serve frontend"
+                type="checkbox"
+                checked={Boolean(values.serve_frontend)}
+                onChange={(event) => updateValue("serve_frontend", event.target.checked)}
+              />
+              Serve frontend from FastAPI
+            </label>
+          </section>
+
+          <div className="tool-row">
+            <button onClick={saveSettings}>Save settings</button>
+            {reloadRequired && <button onClick={reloadBackendEngine}>Reload backend engine</button>}
+          </div>
+          {message && <p className="message">{message}</p>}
+        </>
       )}
     </section>
   );

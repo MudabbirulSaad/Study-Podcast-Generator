@@ -3,13 +3,15 @@ from pathlib import Path
 from pydantic_settings import BaseSettings, SettingsConfigDict
 
 REPO_ROOT = Path(__file__).resolve().parents[4]
+ENV_FILE_PATH = REPO_ROOT / ".env"
 
 
 class Settings(BaseSettings):
-    model_config = SettingsConfigDict(env_file=".env", extra="ignore")
+    model_config = SettingsConfigDict(env_file=ENV_FILE_PATH, extra="ignore")
 
     storage_root: Path = Path("data/storage")
     database_path: Path = Path("data/app.sqlite3")
+    env_file_path: Path = ENV_FILE_PATH
     max_script_size_bytes: int = 1_000_000
     max_chunk_chars: int = 600
     max_chunks: int = 1_000
@@ -21,7 +23,8 @@ class Settings(BaseSettings):
     serve_frontend: bool = True
     frontend_dist_path: Path = REPO_ROOT / "frontend" / "dist"
     frontend_origin: str = "http://localhost:5173"
-    active_tts_engine: str = "fake"
+    active_tts_engine: str = "chatterbox"
+    enable_dev_tts_engine: bool = False
     chatterbox_device: str = "auto"
 
     @property

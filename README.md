@@ -6,8 +6,8 @@ Local-first web app for turning `.txt` study podcast scripts into WAV audio podc
 - Backend: Python, FastAPI, `uv`
 - Frontend: React, TypeScript, React Router, Vite
 - Architecture: hexagonal ports and adapters
-- Default TTS engine: deterministic fake WAV generator
-- Optional real TTS target: Chatterbox, lazy-loaded
+- Production-style TTS engine: Chatterbox, lazy-loaded
+- Development/test TTS engine: deterministic fake WAV generator, opt-in only
 
 ## Prerequisites
 - Python 3.11 or 3.12
@@ -90,19 +90,18 @@ npm run test
 npm run build
 ```
 
-## Optional Chatterbox TTS
-The app starts and all normal tests pass without Chatterbox installed. To enable the real local adapter:
+## Chatterbox TTS
+Chatterbox is the normal production-style local engine. Install the optional TTS dependencies before generating real audio:
 
 ```bash
 cd backend
 uv sync --extra tts-chatterbox
 ```
 
-Run the local app with Chatterbox selected:
+Run the local app:
 
 ```bash
 # PowerShell
-$env:ACTIVE_TTS_ENGINE="chatterbox"
 $env:CHATTERBOX_DEVICE="cpu"
 npm run start
 ```
@@ -117,7 +116,25 @@ $env:RUN_CHATTERBOX_TESTS="1"
 uv run pytest tests/contracts/test_chatterbox_adapter.py
 ```
 
-Chatterbox may require a compatible PyTorch/CUDA setup for your GPU. Keep fake TTS as the default while validating the app workflow; switch to Chatterbox only after the local model environment is working.
+Chatterbox may require a compatible PyTorch/CUDA setup for your GPU. The backend still starts without loading the model; the model is lazy-loaded when the engine is first used.
+
+## Runtime Settings
+The Settings page edits a safe allowlist of runtime values, including the active TTS engine, Chatterbox device, chunk limits, concurrency limits, storage root, frontend origin, and static frontend serving.
+
+When settings are saved:
+- values are persisted to SQLite;
+- the project `.env` file is updated;
+- the UI shows that a backend engine reload is required.
+
+Use the Settings page reload button to rebuild the TTS runtime inside the running FastAPI process. The frontend polls reload status and does not need a page refresh. Runtime reload is blocked while queued, running, or cancellation-requested jobs exist.
+
+For fast development or tests, enable the deterministic development engine explicitly:
+
+```bash
+$env:ENABLE_DEV_TTS_ENGINE="true"
+$env:ACTIVE_TTS_ENGINE="fake"
+npm run start
+```
 
 ## Local Data
 By default, local metadata and generated audio are written under `backend/data/`. This folder is ignored by git.

@@ -12,6 +12,7 @@ def test_project_script_job_and_queue_api_flow(tmp_path) -> None:
             Settings(
                 max_chunk_chars=20,
                 database_path=tmp_path / "app.sqlite3",
+                env_file_path=tmp_path / ".env",
                 auto_start_worker_pool=False,
             )
         )
@@ -53,7 +54,13 @@ def test_project_script_job_and_queue_api_flow(tmp_path) -> None:
 
 def test_cancel_job_api(tmp_path) -> None:
     client = TestClient(
-        create_app(Settings(database_path=tmp_path / "app.sqlite3", auto_start_worker_pool=False))
+        create_app(
+            Settings(
+                database_path=tmp_path / "app.sqlite3",
+                env_file_path=tmp_path / ".env",
+                auto_start_worker_pool=False,
+            )
+        )
     )
     project_id = client.post("/api/v1/projects", json={"title": "Chemistry"}).json()["id"]
     client.put(
@@ -73,6 +80,7 @@ def test_txt_upload_saves_active_script(tmp_path) -> None:
         create_app(
             Settings(
                 database_path=tmp_path / "app.sqlite3",
+                env_file_path=tmp_path / ".env",
                 max_chunk_chars=20,
                 auto_start_worker_pool=False,
             )
@@ -92,7 +100,11 @@ def test_txt_upload_saves_active_script(tmp_path) -> None:
 
 
 def test_upload_rejects_non_txt_file(tmp_path) -> None:
-    client = TestClient(create_app(Settings(database_path=tmp_path / "app.sqlite3")))
+    client = TestClient(
+        create_app(
+            Settings(database_path=tmp_path / "app.sqlite3", env_file_path=tmp_path / ".env")
+        )
+    )
     project_id = client.post("/api/v1/projects", json={"title": "Upload safety"}).json()["id"]
 
     response = client.put(
@@ -113,8 +125,11 @@ def test_api_generates_and_downloads_final_wav_with_fake_engine(tmp_path) -> Non
         create_app(
             Settings(
                 database_path=tmp_path / "app.sqlite3",
+                env_file_path=tmp_path / ".env",
                 storage_root=tmp_path / "storage",
                 max_chunk_chars=20,
+                active_tts_engine="fake",
+                enable_dev_tts_engine=True,
             )
         )
     )
@@ -139,8 +154,10 @@ def test_api_generates_and_downloads_final_wav_with_fake_engine(tmp_path) -> Non
     assert download.content[:4] == b"RIFF"
 
 
-def test_missing_resource_uses_error_envelope() -> None:
-    client = TestClient(create_app(Settings(database_path=":memory:")))
+def test_missing_resource_uses_error_envelope(tmp_path) -> None:
+    client = TestClient(
+        create_app(Settings(database_path=":memory:", env_file_path=tmp_path / ".env"))
+    )
 
     response = client.get("/api/v1/jobs/missing")
 

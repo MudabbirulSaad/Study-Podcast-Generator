@@ -92,6 +92,7 @@ nav a:hover {
 
 button,
 input,
+select,
 textarea {
   border: 1px solid #9aa09a;
   font: inherit;
@@ -115,13 +116,15 @@ button:hover,
 }
 
 input,
+select,
 textarea {
   background: #fffdf7;
   color: #1e2528;
   padding: 10px 12px;
 }
 
-input {
+input,
+select {
   min-width: 240px;
 }
 
@@ -175,6 +178,27 @@ textarea {
 .data-section h2 {
   font-size: 1.1rem;
   margin: 0 0 10px;
+}
+
+.settings-grid {
+  display: grid;
+  gap: 12px;
+  grid-template-columns: repeat(auto-fit, minmax(260px, 1fr));
+}
+
+.settings-grid label {
+  display: grid;
+  font-weight: 700;
+  gap: 6px;
+}
+
+.settings-grid .checkbox-line {
+  align-items: center;
+  display: flex;
+}
+
+.checkbox-line input {
+  min-width: 0;
 }
 
 .chunk-list {

@@ -10,8 +10,11 @@ def test_fake_local_generation_flow_creates_final_wav(tmp_path: Path) -> None:
     container = Container.create(
         Settings(
             database_path=tmp_path / "app.sqlite3",
+            env_file_path=tmp_path / ".env",
             storage_root=tmp_path / "storage",
             max_chunk_chars=24,
+            active_tts_engine="fake",
+            enable_dev_tts_engine=True,
         )
     )
     project = CreateProject(container.projects, container.clock).execute(title="Biology")

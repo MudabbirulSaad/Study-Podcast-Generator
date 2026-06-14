@@ -56,3 +56,16 @@ class JobQueue(Protocol):
 
 class ProgressReporter(Protocol):
     def save(self, job: GenerationJob) -> None: ...
+
+
+class SettingsRepository(Protocol):
+    def save_many(self, values: dict[str, str]) -> None: ...
+    def list(self) -> dict[str, str]: ...
+
+
+class EnvFileWriter(Protocol):
+    def write(self, values: dict[str, object]) -> None: ...
+
+
+class RuntimeEngineReloader(Protocol):
+    def reload(self) -> None: ...

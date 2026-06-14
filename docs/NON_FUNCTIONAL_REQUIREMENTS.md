@@ -2,7 +2,11 @@
 
 - Backend starts without Chatterbox installed.
 - Normal tests pass without GPU, Chatterbox, or model downloads.
-- Fake TTS output is deterministic and tiny.
+- Chatterbox is the production-style local TTS engine and is lazy-loaded.
+- Fake TTS output is deterministic, tiny, and available only as an explicit dev/test engine.
+- Runtime settings are persisted to SQLite and `.env`.
+- Runtime engine reload keeps FastAPI running and does not reload the frontend.
+- Runtime reload is blocked while jobs are active.
 - Real/GPU TTS concurrency defaults to one job.
 - CORS is restricted to the configured local frontend origin.
 - Storage paths use app-generated IDs and `pathlib`.

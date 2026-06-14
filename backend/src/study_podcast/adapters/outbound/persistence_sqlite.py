@@ -150,6 +150,21 @@ class SQLiteStore:
         ).fetchall()
         return [self._job_from_row(row) for row in rows]
 
+    def save_settings(self, values: dict[str, str]) -> None:
+        self._connection.executemany(
+            """
+            INSERT INTO app_settings(key, value)
+            VALUES (?, ?)
+            ON CONFLICT(key) DO UPDATE SET value=excluded.value
+            """,
+            values.items(),
+        )
+        self._connection.commit()
+
+    def list_settings(self) -> dict[str, str]:
+        rows = self._connection.execute("SELECT key, value FROM app_settings").fetchall()
+        return {row["key"]: row["value"] for row in rows}
+
     def _project_from_row(self, row: sqlite3.Row) -> StudyProject:
         return StudyProject(
             id=row["id"],
@@ -216,6 +231,11 @@ class SQLiteStore:
               updated_at TEXT NOT NULL,
               completed_at TEXT
             );
+
+            CREATE TABLE IF NOT EXISTS app_settings (
+              key TEXT PRIMARY KEY,
+              value TEXT NOT NULL
+            );
             """
         )
         self._connection.commit()
@@ -264,3 +284,14 @@ class SQLiteJobRepository:
 
     def list_unfinished(self) -> list[GenerationJob]:
         return self.store.list_unfinished_jobs()
+
+
+class SQLiteSettingsRepository:
+    def __init__(self, store: SQLiteStore) -> None:
+        self.store = store
+
+    def save_many(self, values: dict[str, str]) -> None:
+        self.store.save_settings(values)
+
+    def list(self) -> dict[str, str]:
+        return self.store.list_settings()

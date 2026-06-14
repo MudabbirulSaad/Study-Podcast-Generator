@@ -1,4 +1,4 @@
-import type { Job, Project, QueueSummary, ScriptResponse, TtsSettings } from "../types/api";
+import type { Job, Project, QueueSummary, RuntimeSettings, RuntimeStatus, ScriptResponse, TtsSettings } from "../types/api";
 
 const API_BASE = import.meta.env.VITE_API_BASE_URL ?? "/api/v1";
 
@@ -46,6 +46,10 @@ export type ApiClient = {
   cancelJob(jobId: string): Promise<Job>;
   getQueue(): Promise<QueueSummary>;
   getTtsSettings(): Promise<TtsSettings>;
+  getSettings(): Promise<RuntimeSettings>;
+  saveSettings(values: RuntimeSettings["values"]): Promise<RuntimeSettings>;
+  reloadSettings(): Promise<RuntimeStatus>;
+  getRuntimeStatus(): Promise<RuntimeStatus>;
   finalAudioUrl(projectId: string): string;
   audioStreamUrl(projectId: string): string;
 };
@@ -78,6 +82,17 @@ export const apiClient: ApiClient = {
     }),
   getQueue: () => request<QueueSummary>("/queue"),
   getTtsSettings: () => request<TtsSettings>("/settings/tts-engines"),
+  getSettings: () => request<RuntimeSettings>("/settings"),
+  saveSettings: (values) =>
+    request<RuntimeSettings>("/settings", {
+      method: "PUT",
+      body: JSON.stringify({ values }),
+    }),
+  reloadSettings: () =>
+    request<RuntimeStatus>("/settings/reload", {
+      method: "POST",
+    }),
+  getRuntimeStatus: () => request<RuntimeStatus>("/settings/runtime-status"),
   finalAudioUrl: (projectId) => `${API_BASE}/projects/${projectId}/audio/final`,
   audioStreamUrl: (projectId) => `${API_BASE}/projects/${projectId}/audio/stream`,
 };

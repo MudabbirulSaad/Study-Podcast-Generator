@@ -4,7 +4,7 @@ import { describe, expect, it } from "vitest";
 
 import type { ApiClient } from "../api/client";
 import { App } from "../routes/App";
-import type { QueueSummary, TtsSettings } from "../types/api";
+import type { QueueSummary, RuntimeSettings, RuntimeStatus, TtsSettings } from "../types/api";
 
 const queue: QueueSummary = {
   pending_count: 0,
@@ -16,8 +16,28 @@ const queue: QueueSummary = {
 };
 
 const settings: TtsSettings = {
-  active_engine: "fake",
-  available_engines: ["fake", "chatterbox"],
+  active_engine: "chatterbox",
+  available_engines: ["chatterbox"],
+};
+
+const runtimeSettings: RuntimeSettings = {
+  values: {
+    active_tts_engine: "chatterbox",
+    chatterbox_device: "auto",
+    max_chunk_chars: 600,
+  },
+  editable_fields: ["active_tts_engine", "chatterbox_device", "max_chunk_chars"],
+  available_engines: ["chatterbox"],
+  reload_required: false,
+  runtime_status: "idle",
+  last_reload_error: null,
+};
+
+const runtimeStatus: RuntimeStatus = {
+  status: "ready",
+  active_engine: "chatterbox",
+  reload_required: false,
+  last_reload_error: null,
 };
 
 const client: ApiClient = {
@@ -42,6 +62,10 @@ const client: ApiClient = {
   },
   getQueue: async () => queue,
   getTtsSettings: async () => settings,
+  getSettings: async () => runtimeSettings,
+  saveSettings: async () => runtimeSettings,
+  reloadSettings: async () => runtimeStatus,
+  getRuntimeStatus: async () => runtimeStatus,
   finalAudioUrl: (projectId) => `/api/v1/projects/${projectId}/audio/final`,
   audioStreamUrl: (projectId) => `/api/v1/projects/${projectId}/audio/stream`,
 };

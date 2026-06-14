@@ -6,7 +6,10 @@
 - Use one active script per project in v1.
 - Use WAV output in v1. MP3 and FFmpeg are out of scope until explicitly added.
 - Do not run TTS generation inside FastAPI route handlers. Routes submit jobs through the queue.
-- Keep fake TTS deterministic and available without GPU or model downloads.
+- Chatterbox is the production-style local TTS engine.
+- Keep fake TTS deterministic, but expose it only when `ENABLE_DEV_TTS_ENGINE=true`.
+- Runtime settings updates must persist to SQLite and `.env`.
+- Runtime engine reload must keep FastAPI running and must reject reload while jobs are active.
 
 ## Backend Commands
 - `uv run pytest`
@@ -29,4 +32,4 @@
 - Write behavior tests through public interfaces before implementation.
 - Run checks before every commit.
 - Commit only when checks are green.
-- Do not let optional Chatterbox dependencies block fake-engine development.
+- Do not let optional Chatterbox dependencies block explicit dev/test fake-engine development.

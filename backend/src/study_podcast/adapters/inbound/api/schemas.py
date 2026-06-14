@@ -113,3 +113,23 @@ class TtsEngineSettingsResponse(BaseModel):
 
 class UpdateTtsEngineRequest(BaseModel):
     engine: str
+
+
+class RuntimeSettingsResponse(BaseModel):
+    values: dict[str, object]
+    editable_fields: list[str]
+    available_engines: list[str]
+    reload_required: bool
+    runtime_status: str
+    last_reload_error: str | None
+
+
+class UpdateRuntimeSettingsRequest(BaseModel):
+    values: dict[str, object]
+
+
+class RuntimeStatusResponse(BaseModel):
+    status: str
+    active_engine: str
+    reload_required: bool
+    last_reload_error: str | None
