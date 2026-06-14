@@ -10,6 +10,9 @@
 - Keep fake TTS deterministic, but expose it only when `ENABLE_DEV_TTS_ENGINE=true`.
 - Runtime settings updates must persist to SQLite and `.env`.
 - Runtime engine reload must keep FastAPI running and must reject reload while jobs are active.
+- Generation jobs must keep immutable snapshots for exact inspection and rerun.
+- Uploaded voice samples must stay under the configured storage root and use app-generated IDs.
+- Prefer job-specific audio endpoints in new frontend work.
 
 ## Backend Commands
 - `uv run pytest`

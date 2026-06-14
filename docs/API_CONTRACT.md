@@ -4,8 +4,8 @@ Base path: `/api/v1`
 
 ## Projects
 - `POST /projects`
-- `GET /projects`
-- `GET /projects/{project_id}`
+- `GET /projects` returns persisted projects newest first.
+- `GET /projects/{project_id}` returns project details, active-script presence, and latest jobs.
 
 ## Active Script
 - `PUT /projects/{project_id}/script`
@@ -14,11 +14,16 @@ Base path: `/api/v1`
 V1 supports one active script per project. Multiple script versions are reserved for v2.
 
 ## Jobs And Queue
-- `POST /projects/{project_id}/jobs`
-- `GET /jobs`
-- `GET /jobs/{job_id}`
+- `POST /projects/{project_id}/jobs` accepts optional `voice_profile_id` and `tts_params`.
+- `GET /jobs?status=completed&project_id=<id>` lists jobs with optional filters.
+- `GET /jobs/{job_id}` returns progress plus snapshot summary when available.
 - `POST /jobs/{job_id}/cancel`
+- `POST /jobs/{job_id}/rerun`
+- `GET /jobs/{job_id}/script`
 - `GET /queue`
+
+Each submitted generation job stores an immutable input snapshot containing script text,
+detected chunks/speakers, selected voice profile, and Chatterbox parameters.
 
 Duplicate active job response:
 ```json
@@ -34,6 +39,18 @@ Duplicate active job response:
 ## Audio
 - `GET /projects/{project_id}/audio/final`
 - `GET /projects/{project_id}/audio/stream`
+- `GET /jobs/{job_id}/audio/final`
+- `GET /jobs/{job_id}/audio/stream`
+
+Project audio endpoints return the latest completed job for compatibility. New UI flows use
+job-specific audio endpoints.
+
+## Voices
+- `GET /voices`
+- `POST /voices`
+
+`GET /voices` always includes the built-in `default` Chatterbox voice. Uploaded voices are saved
+locally as reusable profiles and used as Chatterbox `audio_prompt_path` values.
 
 ## Settings
 - `GET /settings`

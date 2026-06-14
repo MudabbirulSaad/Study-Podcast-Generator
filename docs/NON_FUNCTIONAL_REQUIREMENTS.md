@@ -8,6 +8,8 @@
 - Runtime engine reload keeps FastAPI running and does not reload the frontend.
 - Runtime reload is blocked while jobs are active.
 - Real/GPU TTS concurrency defaults to one job.
+- Job snapshots must not change when the active project script is edited later.
+- Uploaded voice samples must be stored under the configured storage root with app-generated IDs.
 - CORS is restricted to the configured local frontend origin.
 - Storage paths use app-generated IDs and `pathlib`.
 - Files are stored only under the configured storage directory.

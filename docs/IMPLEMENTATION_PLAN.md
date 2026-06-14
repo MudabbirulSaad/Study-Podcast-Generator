@@ -17,3 +17,7 @@
 | 13 | End-to-end fake local smoke | all checks | `test: add local smoke flow` |
 | 14 | Final README/docs acceptance | all checks | `docs: finalize local setup guide` |
 | 15 | Runtime settings and Chatterbox-first engine reload | backend/frontend checks | `feat: add runtime tts settings reload` |
+| 16 | Persisted project library | backend/frontend checks | `feat: show persisted project library` |
+| 17 | Job snapshots and rerun | backend checks | `feat: snapshot generation inputs` |
+| 18 | Reusable voice profiles and Chatterbox prompts | backend checks | `feat: add reusable voice profiles` |
+| 19 | Job history workflow and custom audio player | backend/frontend checks | `feat: improve project and job workflow` |

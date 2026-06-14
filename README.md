@@ -8,6 +8,7 @@ Local-first web app for turning `.txt` study podcast scripts into WAV audio podc
 - Architecture: hexagonal ports and adapters
 - Production-style TTS engine: Chatterbox, lazy-loaded
 - Development/test TTS engine: deterministic fake WAV generator, opt-in only
+- Persistent project library, generation history, reusable voice profiles, and custom audio player
 
 ## Prerequisites
 - Python 3.11 or 3.12
@@ -124,6 +125,14 @@ uv run pytest tests/contracts/test_chatterbox_adapter.py
 ```
 
 Chatterbox may require a compatible PyTorch/CUDA setup for your GPU. The backend still starts without loading the model; the model is lazy-loaded when the engine is first used. Generated WAV files are written with `soundfile` so local WAV output does not require TorchCodec or FFmpeg.
+
+## Projects, Jobs, And Voices
+- Projects are stored in SQLite and listed on the Projects page after restart.
+- Each generation job stores an immutable snapshot of the script, detected chunks, selected voice profile, and Chatterbox parameters.
+- Completed jobs can be replayed, downloaded, inspected, and rerun from the saved snapshot.
+- Uploaded voice samples are saved as reusable local voice profiles under the configured storage root.
+- Chatterbox voice cloning uses the saved voice sample as `audio_prompt_path`.
+- The UI uses a custom audio player with play/pause, seek, skip, speed, volume, and download controls.
 
 ## Runtime Settings
 The Settings page edits a safe allowlist of runtime values, including the active TTS engine, Chatterbox device, chunk limits, concurrency limits, storage root, frontend origin, and static frontend serving.
