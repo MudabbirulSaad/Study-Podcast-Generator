@@ -22,6 +22,7 @@ class Settings(BaseSettings):
     frontend_dist_path: Path = REPO_ROOT / "frontend" / "dist"
     frontend_origin: str = "http://localhost:5173"
     active_tts_engine: str = "fake"
+    chatterbox_device: str = "auto"
 
     @property
     def concurrency_limits(self) -> dict[str, int]:

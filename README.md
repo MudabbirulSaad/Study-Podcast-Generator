@@ -98,6 +98,25 @@ cd backend
 uv sync --extra tts-chatterbox
 ```
 
+Run the local app with Chatterbox selected:
+
+```bash
+# PowerShell
+$env:ACTIVE_TTS_ENGINE="chatterbox"
+$env:CHATTERBOX_DEVICE="cpu"
+npm run start
+```
+
+Use `CHATTERBOX_DEVICE="cuda"` only when the installed PyTorch build has CUDA enabled. The default `CHATTERBOX_DEVICE="auto"` uses CUDA when available and otherwise falls back to CPU.
+
+The real Chatterbox contract test is opt-in because it loads model dependencies:
+
+```bash
+cd backend
+$env:RUN_CHATTERBOX_TESTS="1"
+uv run pytest tests/contracts/test_chatterbox_adapter.py
+```
+
 Chatterbox may require a compatible PyTorch/CUDA setup for your GPU. Keep fake TTS as the default while validating the app workflow; switch to Chatterbox only after the local model environment is working.
 
 ## Local Data

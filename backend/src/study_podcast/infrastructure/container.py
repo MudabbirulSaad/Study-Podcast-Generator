@@ -44,7 +44,7 @@ class Container:
         scripts = SQLiteScriptRepository(store)
         storage = LocalFileStorage(resolved_settings.storage_root)
         tts = (
-            ChatterboxTtsEngine()
+            ChatterboxTtsEngine(device=resolved_settings.chatterbox_device)
             if resolved_settings.active_tts_engine == "chatterbox"
             else FakeTtsEngine()
         )
