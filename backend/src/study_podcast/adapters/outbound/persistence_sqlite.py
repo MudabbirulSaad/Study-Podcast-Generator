@@ -76,7 +76,9 @@ class SQLiteStore:
         return self._project_from_row(row) if row is not None else None
 
     def list_projects(self) -> list[StudyProject]:
-        rows = self._connection.execute("SELECT * FROM projects ORDER BY created_at").fetchall()
+        rows = self._connection.execute(
+            "SELECT * FROM projects ORDER BY created_at DESC"
+        ).fetchall()
         return [self._project_from_row(row) for row in rows]
 
     def save_job(self, job: GenerationJob) -> None:

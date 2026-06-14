@@ -52,6 +52,33 @@ def test_project_script_job_and_queue_api_flow(tmp_path) -> None:
     assert queue["queue_positions"] == {job["id"]: 1}
 
 
+def test_projects_are_listed_newest_first_and_detail_includes_summary(tmp_path) -> None:
+    settings = Settings(
+        max_chunk_chars=20,
+        database_path=tmp_path / "app.sqlite3",
+        env_file_path=tmp_path / ".env",
+        auto_start_worker_pool=False,
+    )
+    client = TestClient(create_app(settings))
+    first = client.post("/api/v1/projects", json={"title": "First"}).json()
+    second = client.post("/api/v1/projects", json={"title": "Second"}).json()
+    client.put(
+        f"/api/v1/projects/{second['id']}/script",
+        json={"text": "[Narrator] Restart-safe notes.", "source": "pasted"},
+    )
+    job = client.post(f"/api/v1/projects/{second['id']}/jobs").json()
+
+    restarted_client = TestClient(create_app(settings))
+
+    projects = restarted_client.get("/api/v1/projects").json()
+    detail = restarted_client.get(f"/api/v1/projects/{second['id']}").json()
+
+    assert [project["id"] for project in projects] == [second["id"], first["id"]]
+    assert detail["id"] == second["id"]
+    assert detail["has_active_script"] is True
+    assert detail["latest_jobs"][0]["id"] == job["id"]
+
+
 def test_cancel_job_api(tmp_path) -> None:
     client = TestClient(
         create_app(

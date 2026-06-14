@@ -44,6 +44,13 @@ const client: ApiClient = {
   createProject: async () => {
     throw new Error("not used");
   },
+  listProjects: async () => [],
+  getProject: async () => {
+    throw new Error("not used");
+  },
+  getScript: async () => {
+    throw new Error("not used");
+  },
   saveScript: async () => {
     throw new Error("not used");
   },
@@ -76,7 +83,7 @@ describe("App", () => {
   it("renders the product name", () => {
     render(
       <MemoryRouter>
-        <App />
+        <App client={client} />
       </MemoryRouter>,
     );
 

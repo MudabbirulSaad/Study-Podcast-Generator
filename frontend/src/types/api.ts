@@ -5,6 +5,11 @@ export type Project = {
   updated_at: string;
 };
 
+export type ProjectDetail = Project & {
+  has_active_script: boolean;
+  latest_jobs: Job[];
+};
+
 export type Chunk = {
   index: number;
   speaker: string;

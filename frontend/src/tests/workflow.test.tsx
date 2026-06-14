@@ -94,6 +94,13 @@ function makeClient(): ApiClient {
   };
   return {
     createProject: async () => project,
+    listProjects: async () => [project],
+    getProject: async () => ({
+      ...project,
+      has_active_script: true,
+      latest_jobs: [],
+    }),
+    getScript: async () => script,
     saveScript: async () => script,
     startJob: async () => makeJob(),
     listJobs: async () => [
@@ -138,6 +145,19 @@ function makeClient(): ApiClient {
 }
 
 describe("workflow UI", () => {
+  it("loads persisted projects and opens an existing script", async () => {
+    render(
+      <MemoryRouter>
+        <App client={makeClient()} />
+      </MemoryRouter>,
+    );
+
+    expect(await screen.findByRole("heading", { name: "Project Library" })).toBeInTheDocument();
+    expect(screen.getByRole("button", { name: "Biology 101" })).toBeInTheDocument();
+    expect(await screen.findByText("Active project: Biology 101")).toBeInTheDocument();
+    expect(screen.getByDisplayValue("[S1] Cells divide.")).toBeInTheDocument();
+  });
+
   it("creates a project, previews chunks, starts and cancels a job", async () => {
     render(
       <MemoryRouter>

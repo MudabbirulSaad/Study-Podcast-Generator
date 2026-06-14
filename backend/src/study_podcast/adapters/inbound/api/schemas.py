@@ -33,6 +33,11 @@ class ProjectResponse(BaseModel):
         return cls.model_validate(project, from_attributes=True)
 
 
+class ProjectDetailResponse(ProjectResponse):
+    has_active_script: bool
+    latest_jobs: list["JobResponse"]
+
+
 class SaveScriptRequest(BaseModel):
     text: str
     source: Literal["pasted", "uploaded"] = "pasted"

@@ -11,6 +11,7 @@ type AppProps = {
 
 function ProjectsRoute({ client }: { client: ApiClient }) {
   const [title, setTitle] = useState("Biology 101");
+  const [projects, setProjects] = useState<Project[]>([]);
   const [project, setProject] = useState<Project | null>(null);
   const [script, setScript] = useState<ScriptResponse | null>(null);
   const [job, setJob] = useState<Job | null>(null);
@@ -20,6 +21,18 @@ function ProjectsRoute({ client }: { client: ApiClient }) {
   const audioVersion = job?.status === "completed" ? job.id : undefined;
   const audioUrl = project ? client.audioStreamUrl(project.id, audioVersion) : "";
   const downloadUrl = project ? client.finalAudioUrl(project.id, audioVersion) : "";
+
+  async function loadProjects() {
+    const loaded = await client.listProjects();
+    setProjects(loaded);
+    if (!project && loaded.length > 0) {
+      await openProject(loaded[0]);
+    }
+  }
+
+  useEffect(() => {
+    void loadProjects();
+  }, []);
 
   useEffect(() => {
     if (!job || ["completed", "failed", "cancelled", "interrupted"].includes(job.status)) {
@@ -40,9 +53,24 @@ function ProjectsRoute({ client }: { client: ApiClient }) {
     return queue.queue_positions[job.id] ?? null;
   }, [job, queue]);
 
+  async function openProject(nextProject: Project) {
+    setMessage("");
+    setProject(nextProject);
+    setJob(null);
+    try {
+      const loadedScript = await client.getScript(nextProject.id);
+      setScript(loadedScript);
+      setScriptText(loadedScript.text);
+    } catch {
+      setScript(null);
+    }
+  }
+
   async function createProject() {
     setMessage("");
-    setProject(await client.createProject(title));
+    const created = await client.createProject(title);
+    setProjects([created, ...projects.filter((item) => item.id !== created.id)]);
+    await openProject(created);
   }
 
   async function saveScript() {
@@ -50,7 +78,9 @@ function ProjectsRoute({ client }: { client: ApiClient }) {
       setMessage("Create a project first.");
       return;
     }
-    setScript(await client.saveScript(project.id, scriptText));
+    const saved = await client.saveScript(project.id, scriptText);
+    setScript(saved);
+    setScriptText(saved.text);
   }
 
   async function uploadScript(file: File | null) {
@@ -61,7 +91,9 @@ function ProjectsRoute({ client }: { client: ApiClient }) {
     if (!file) {
       return;
     }
-    setScript(await client.uploadScript(project.id, file));
+    const uploadedScript = await client.uploadScript(project.id, file);
+    setScript(uploadedScript);
+    setScriptText(uploadedScript.text);
   }
 
   async function startJob() {
@@ -88,10 +120,27 @@ function ProjectsRoute({ client }: { client: ApiClient }) {
         <p className="eyebrow">Projects</p>
         <h1>Study Podcast Generator</h1>
       </div>
-      <div className="tool-row">
-        <input value={title} onChange={(event) => setTitle(event.target.value)} aria-label="Project title" />
-        <button onClick={createProject}>Create Project</button>
-      </div>
+      <section className="data-section" aria-label="Project library">
+        <h2>Project Library</h2>
+        <div className="tool-row">
+          <input value={title} onChange={(event) => setTitle(event.target.value)} aria-label="Project title" />
+          <button onClick={createProject}>Create Project</button>
+        </div>
+        {projects.length === 0 && <p>No saved projects yet.</p>}
+        <div className="project-list">
+          {projects.map((item) => (
+            <button
+              className={project?.id === item.id ? "selected-project" : ""}
+              key={item.id}
+              onClick={() => {
+                void openProject(item);
+              }}
+            >
+              {item.title}
+            </button>
+          ))}
+        </div>
+      </section>
       {project && <p className="status-line">Active project: {project.title}</p>}
 
       <label className="editor-label" htmlFor="script">

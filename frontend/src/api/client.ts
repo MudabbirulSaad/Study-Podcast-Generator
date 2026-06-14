@@ -1,4 +1,13 @@
-import type { Job, Project, QueueSummary, RuntimeSettings, RuntimeStatus, ScriptResponse, TtsSettings } from "../types/api";
+import type {
+  Job,
+  Project,
+  ProjectDetail,
+  QueueSummary,
+  RuntimeSettings,
+  RuntimeStatus,
+  ScriptResponse,
+  TtsSettings,
+} from "../types/api";
 
 const API_BASE = import.meta.env.VITE_API_BASE_URL ?? "/api/v1";
 
@@ -38,6 +47,9 @@ async function uploadRequest<T>(path: string, formData: FormData): Promise<T> {
 
 export type ApiClient = {
   createProject(title: string): Promise<Project>;
+  listProjects(): Promise<Project[]>;
+  getProject(projectId: string): Promise<ProjectDetail>;
+  getScript(projectId: string): Promise<ScriptResponse>;
   saveScript(projectId: string, text: string): Promise<ScriptResponse>;
   uploadScript(projectId: string, file: File): Promise<ScriptResponse>;
   startJob(projectId: string): Promise<Job>;
@@ -60,6 +72,9 @@ export const apiClient: ApiClient = {
       method: "POST",
       body: JSON.stringify({ title }),
     }),
+  listProjects: () => request<Project[]>("/projects"),
+  getProject: (projectId) => request<ProjectDetail>(`/projects/${projectId}`),
+  getScript: (projectId) => request<ScriptResponse>(`/projects/${projectId}/script`),
   saveScript: (projectId, text) =>
     request<ScriptResponse>(`/projects/${projectId}/script`, {
       method: "PUT",
