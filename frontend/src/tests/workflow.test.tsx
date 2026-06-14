@@ -64,6 +64,26 @@ function makeClient(): ApiClient {
     createProject: async () => project,
     saveScript: async () => script,
     startJob: async () => makeJob(),
+    listJobs: async () => [
+      makeJob({
+        id: "job-1",
+        status: "completed",
+        phase: "completed",
+        progress_percent: 100,
+        completed_chunks: 2,
+        message: "Completed",
+      }),
+      makeJob({
+        id: "job-2",
+        project_id: "project-2",
+        status: "failed",
+        phase: "synthesizing",
+        progress_percent: 45,
+        completed_chunks: 1,
+        message: "script not found",
+        failure_reason: "script not found",
+      }),
+    ],
     getJob: async () => makeJob({ status: "running", phase: "synthesizing", progress_percent: 45 }),
     cancelJob: async () => makeJob({ status: "cancelled", message: "Cancelled" }),
     uploadScript: async () => script,
@@ -120,5 +140,36 @@ describe("workflow UI", () => {
       "http://api.test/api/v1/projects/project-1/audio/final",
     );
     expect(screen.getByLabelText("Job progress")).toBeInTheDocument();
+  });
+
+  it("renders job history on the jobs route", async () => {
+    render(
+      <MemoryRouter initialEntries={["/jobs"]}>
+        <App client={makeClient()} />
+      </MemoryRouter>,
+    );
+
+    expect(await screen.findByText("job-1")).toBeInTheDocument();
+    expect(screen.getByText("completed / completed / 100%")).toBeInTheDocument();
+    expect(screen.getByText("2 / 2 chunks / queue position 1")).toBeInTheDocument();
+    expect(screen.getByText("job-2")).toBeInTheDocument();
+    expect(screen.getByText("failed / synthesizing / 45%")).toBeInTheDocument();
+    expect(screen.getAllByText("script not found")).toHaveLength(1);
+  });
+
+  it("keeps job history visible when queue summary fails", async () => {
+    const client = makeClient();
+    client.getQueue = async () => {
+      throw { code: "request_failed", message: "Request failed." };
+    };
+
+    render(
+      <MemoryRouter initialEntries={["/jobs"]}>
+        <App client={client} />
+      </MemoryRouter>,
+    );
+
+    expect(await screen.findByText("job-1")).toBeInTheDocument();
+    expect(screen.getByText("Queue summary unavailable.")).toBeInTheDocument();
   });
 });

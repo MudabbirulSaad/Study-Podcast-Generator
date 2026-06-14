@@ -2,13 +2,25 @@ import type { Job, Project, QueueSummary, ScriptResponse, TtsSettings } from "..
 
 const API_BASE = import.meta.env.VITE_API_BASE_URL ?? "/api/v1";
 
+async function errorEnvelope(response: Response): Promise<unknown> {
+  try {
+    return await response.json();
+  } catch {
+    return {
+      code: "request_failed",
+      message: "Request failed.",
+      details: { status: response.status },
+    };
+  }
+}
+
 async function request<T>(path: string, options?: RequestInit): Promise<T> {
   const response = await fetch(`${API_BASE}${path}`, {
     headers: { "Content-Type": "application/json", ...options?.headers },
     ...options,
   });
   if (!response.ok) {
-    throw await response.json();
+    throw await errorEnvelope(response);
   }
   return response.json() as Promise<T>;
 }
@@ -19,7 +31,7 @@ async function uploadRequest<T>(path: string, formData: FormData): Promise<T> {
     body: formData,
   });
   if (!response.ok) {
-    throw await response.json();
+    throw await errorEnvelope(response);
   }
   return response.json() as Promise<T>;
 }
@@ -29,6 +41,7 @@ export type ApiClient = {
   saveScript(projectId: string, text: string): Promise<ScriptResponse>;
   uploadScript(projectId: string, file: File): Promise<ScriptResponse>;
   startJob(projectId: string): Promise<Job>;
+  listJobs(): Promise<Job[]>;
   getJob(jobId: string): Promise<Job>;
   cancelJob(jobId: string): Promise<Job>;
   getQueue(): Promise<QueueSummary>;
@@ -57,6 +70,7 @@ export const apiClient: ApiClient = {
     request<Job>(`/projects/${projectId}/jobs`, {
       method: "POST",
     }),
+  listJobs: () => request<Job[]>("/jobs"),
   getJob: (jobId) => request<Job>(`/jobs/${jobId}`),
   cancelJob: (jobId) =>
     request<Job>(`/jobs/${jobId}/cancel`, {

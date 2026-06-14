@@ -196,7 +196,32 @@ textarea {
 .job-head {
   align-items: center;
   display: flex;
+  gap: 12px;
   justify-content: space-between;
+}
+
+.job-list {
+  display: grid;
+  gap: 14px;
+  width: min(100%, 820px);
+}
+
+.job-card {
+  background: #fffdf7;
+  border: 1px solid #cbc5b7;
+  padding: 16px;
+}
+
+.job-card h2 {
+  font-size: 1rem;
+  margin: 0 0 6px;
+  overflow-wrap: anywhere;
+}
+
+.job-card p {
+  margin: 8px 0;
+  max-width: none;
+  overflow-wrap: anywhere;
 }
 
 .icon-button {

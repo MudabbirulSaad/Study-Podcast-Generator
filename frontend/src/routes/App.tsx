@@ -179,12 +179,98 @@ function ProjectDetailRoute() {
   );
 }
 
-function JobsRoute() {
+const activeJobStatuses = ["queued", "running", "cancel_requested"];
+
+function JobsRoute({ client }: { client: ApiClient }) {
+  const [jobs, setJobs] = useState<Job[]>([]);
+  const [queue, setQueue] = useState<QueueSummary | null>(null);
+  const [message, setMessage] = useState("");
+
+  async function refreshJobs() {
+    const [jobsResult, queueResult] = await Promise.allSettled([client.listJobs(), client.getQueue()]);
+    if (jobsResult.status === "fulfilled") {
+      setJobs(jobsResult.value);
+    } else {
+      setMessage("Job history unavailable.");
+    }
+    if (queueResult.status === "fulfilled") {
+      setQueue(queueResult.value);
+    } else {
+      setMessage("Queue summary unavailable.");
+    }
+  }
+
+  useEffect(() => {
+    void refreshJobs();
+  }, []);
+
+  async function cancelJob(jobId: string) {
+    setMessage("");
+    await client.cancelJob(jobId);
+    await refreshJobs();
+  }
+
   return (
-    <section className="workspace-panel">
-      <p className="eyebrow">Queue</p>
-      <h1>Generation Jobs</h1>
-      <p>Queued, running, completed, cancelled, failed, and interrupted jobs.</p>
+    <section className="workspace-panel flow-grid">
+      <div>
+        <p className="eyebrow">Queue</p>
+        <h1>Generation Jobs</h1>
+        <p>Queued, running, completed, cancelled, failed, and interrupted jobs.</p>
+      </div>
+
+      {queue && (
+        <section className="data-section" aria-label="Queue summary">
+          <h2>Queue Summary</h2>
+          <p>
+            {queue.pending_count} pending / {queue.running_count} running / {queue.completed_count} completed
+          </p>
+          <p>Max active jobs: {queue.max_active_jobs_total}</p>
+        </section>
+      )}
+
+      {message && <p className="message">{message}</p>}
+
+      <section className="job-list" aria-label="Job history">
+        {jobs.length === 0 && <p>No generation jobs yet.</p>}
+        {jobs.map((job) => {
+          const queuePosition = queue?.queue_positions[job.id] ?? null;
+          const canCancel = activeJobStatuses.includes(job.status);
+          return (
+            <article className="job-card" key={job.id}>
+              <div className="job-head">
+                <div>
+                  <h2>{job.id}</h2>
+                  <p>{job.status} / {job.phase} / {job.progress_percent}%</p>
+                  <p>Project {job.project_id}</p>
+                </div>
+                {canCancel && (
+                  <button
+                    className="icon-button"
+                    onClick={() => {
+                      void cancelJob(job.id);
+                    }}
+                    aria-label={`Cancel job ${job.id}`}
+                  >
+                    <XCircle aria-hidden="true" />
+                  </button>
+                )}
+              </div>
+              <div className="meter" aria-label={`Progress for job ${job.id}`}>
+                <span style={{ width: `${job.progress_percent}%` }} />
+              </div>
+              <p>
+                {job.completed_chunks} / {job.total_chunks} chunks
+                {queuePosition ? ` / queue position ${queuePosition}` : ""}
+              </p>
+              {job.current_chunk_preview && <p>{job.current_chunk_preview}</p>}
+              {job.message && <p className="message">{job.message}</p>}
+              {job.failure_reason && job.failure_reason !== job.message && (
+                <p className="message">{job.failure_reason}</p>
+              )}
+            </article>
+          );
+        })}
+      </section>
     </section>
   );
 }
@@ -237,7 +323,7 @@ export function App({ client = apiClient }: AppProps) {
         <Routes>
           <Route path="/" element={<ProjectsRoute client={client} />} />
           <Route path="/projects/:projectId" element={<ProjectDetailRoute />} />
-          <Route path="/jobs" element={<JobsRoute />} />
+          <Route path="/jobs" element={<JobsRoute client={client} />} />
           <Route path="/settings" element={<SettingsRoute client={client} />} />
         </Routes>
       </main>
