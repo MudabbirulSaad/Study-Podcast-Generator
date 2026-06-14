@@ -18,6 +18,12 @@
 - `npm run test`
 - `npm run build`
 
+## Root Commands
+- `npm run dev` starts backend and frontend together for development.
+- `npm run build` builds the production-style frontend bundle.
+- `npm run start` serves the built frontend and API from one FastAPI process.
+- `npm run check` runs backend and frontend validation.
+
 ## TDD And Commits
 - Work milestone by milestone.
 - Write behavior tests through public interfaces before implementation.

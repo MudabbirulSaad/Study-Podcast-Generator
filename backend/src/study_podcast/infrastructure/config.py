@@ -2,6 +2,8 @@ from pathlib import Path
 
 from pydantic_settings import BaseSettings, SettingsConfigDict
 
+REPO_ROOT = Path(__file__).resolve().parents[4]
+
 
 class Settings(BaseSettings):
     model_config = SettingsConfigDict(env_file=".env", extra="ignore")
@@ -16,6 +18,8 @@ class Settings(BaseSettings):
     audio_merge_max_concurrent_jobs: int = 1
     max_active_jobs_total: int = 10
     auto_start_worker_pool: bool = True
+    serve_frontend: bool = True
+    frontend_dist_path: Path = REPO_ROOT / "frontend" / "dist"
     frontend_origin: str = "http://localhost:5173"
     active_tts_engine: str = "fake"
 

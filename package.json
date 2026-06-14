@@ -1,0 +1,18 @@
+{
+  "name": "study-podcast-generator",
+  "version": "0.1.0",
+  "private": true,
+  "scripts": {
+    "dev": "concurrently -n backend,frontend -c blue,green \"npm run dev:backend\" \"npm run dev:frontend\"",
+    "dev:backend": "cd backend && uv run uvicorn --app-dir src study_podcast.infrastructure.app:create_app --factory --host 127.0.0.1 --port 8000 --reload",
+    "dev:frontend": "npm --prefix frontend run dev -- --host 127.0.0.1 --port 5173",
+    "build": "npm --prefix frontend run build",
+    "start": "cd backend && uv run uvicorn --app-dir src study_podcast.infrastructure.app:create_app --factory --host 127.0.0.1 --port 8000",
+    "check:backend": "cd backend && uv run pytest && uv run ruff check . && uv run ruff format --check .",
+    "check:frontend": "npm --prefix frontend run typecheck && npm --prefix frontend run test && npm --prefix frontend run build",
+    "check": "npm run check:backend && npm run check:frontend"
+  },
+  "devDependencies": {
+    "concurrently": "^9.2.1"
+  }
+}
