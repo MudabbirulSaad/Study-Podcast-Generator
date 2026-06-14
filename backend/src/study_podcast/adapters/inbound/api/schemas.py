@@ -10,6 +10,7 @@ from study_podcast.domain.entities import (
     QueueSummary,
     StudyProject,
     TextChunk,
+    VoiceProfile,
 )
 
 
@@ -179,3 +180,16 @@ class RuntimeStatusResponse(BaseModel):
     active_engine: str
     reload_required: bool
     last_reload_error: str | None
+
+
+class VoiceProfileResponse(BaseModel):
+    id: str
+    display_name: str
+    source: str
+    sample_path: str | None
+    created_at: datetime
+    updated_at: datetime
+
+    @classmethod
+    def from_domain(cls, profile: VoiceProfile) -> "VoiceProfileResponse":
+        return cls.model_validate(profile, from_attributes=True)

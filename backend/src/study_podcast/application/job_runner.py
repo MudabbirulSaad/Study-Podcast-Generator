@@ -11,6 +11,7 @@ from study_podcast.domain.ports import (
     ProgressReporter,
     ScriptRepository,
     TtsEngine,
+    VoiceProfileRepository,
 )
 from study_podcast.domain.services import split_script_into_chunks
 from study_podcast.domain.value_objects import JobStatus
@@ -20,6 +21,7 @@ from study_podcast.domain.value_objects import JobStatus
 class GenerationJobRunner:
     scripts: ScriptRepository
     snapshots: JobInputSnapshotRepository
+    voices: VoiceProfileRepository
     jobs: JobRepository
     tts: TtsEngine
     merger: AudioMerger
@@ -64,10 +66,16 @@ class GenerationJobRunner:
                     self.progress.save(latest)
                     return latest
                 output_path = self.storage.path_for_chunk(job.project_id, job.id, chunk.index)
+                voice_prompt_path = None
+                if snapshot is not None and snapshot.voice_profile_id != "default":
+                    voice = self.voices.get(snapshot.voice_profile_id)
+                    if voice is None:
+                        raise DomainError("voice profile not found")
+                    voice_prompt_path = voice.sample_path
                 audio = self.tts.synthesize(
                     chunk=chunk,
                     output_path=output_path,
-                    voice_prompt_path=None,
+                    voice_prompt_path=voice_prompt_path,
                     tts_params=snapshot.tts_params if snapshot is not None else {},
                 )
                 audio_chunks.append(audio)

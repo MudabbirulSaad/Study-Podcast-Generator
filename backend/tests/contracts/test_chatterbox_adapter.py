@@ -41,8 +41,9 @@ def test_chatterbox_adapter_saves_generated_tensor(monkeypatch, tmp_path: Path) 
     class FakeModel:
         sr = 24000
 
-        def generate(self, text: str) -> FakeAudio:
+        def generate(self, text: str, **kwargs) -> FakeAudio:
             saved["text"] = text
+            saved["kwargs"] = kwargs
             return FakeAudio()
 
     class FakeSoundFile:
@@ -66,11 +67,18 @@ def test_chatterbox_adapter_saves_generated_tensor(monkeypatch, tmp_path: Path) 
     audio = adapter.synthesize(
         chunk=TextChunk(index=0, speaker="Narrator", text="Short local test."),
         output_path=tmp_path / "chunk.wav",
+        voice_prompt_path=tmp_path / "voice.wav",
+        tts_params={"temperature": 0.4, "cfg_weight": 0.7},
     )
 
     assert Path(audio.path).exists()
     assert saved == {
         "text": "Short local test.",
+        "kwargs": {
+            "audio_prompt_path": str(tmp_path / "voice.wav"),
+            "temperature": 0.4,
+            "cfg_weight": 0.7,
+        },
         "path": str(tmp_path / "chunk.wav"),
         "audio": [0.0, 0.0],
         "sample_rate": 24000,

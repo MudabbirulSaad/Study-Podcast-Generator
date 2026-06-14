@@ -52,6 +52,44 @@ class JobInputSnapshot:
     created_at: datetime
 
 
+@dataclass(frozen=True)
+class VoiceProfile:
+    id: str
+    display_name: str
+    source: str
+    sample_path: str | None
+    created_at: datetime
+    updated_at: datetime
+
+    @classmethod
+    def default(cls, now: datetime) -> "VoiceProfile":
+        return cls(
+            id="default",
+            display_name="Default Chatterbox voice",
+            source="default",
+            sample_path=None,
+            created_at=now,
+            updated_at=now,
+        )
+
+    @classmethod
+    def uploaded(
+        cls,
+        *,
+        display_name: str,
+        sample_path: str,
+        now: datetime,
+    ) -> "VoiceProfile":
+        return cls(
+            id=str(uuid4()),
+            display_name=display_name.strip(),
+            source="uploaded",
+            sample_path=sample_path,
+            created_at=now,
+            updated_at=now,
+        )
+
+
 @dataclass
 class GenerationJob:
     id: str

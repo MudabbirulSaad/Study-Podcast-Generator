@@ -3,7 +3,15 @@ from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import FileResponse, JSONResponse
 from fastapi.staticfiles import StaticFiles
 
-from study_podcast.adapters.inbound.api import audio, jobs, projects, queue, scripts, settings
+from study_podcast.adapters.inbound.api import (
+    audio,
+    jobs,
+    projects,
+    queue,
+    scripts,
+    settings,
+    voices,
+)
 from study_podcast.domain.errors import ActiveJobExistsError, DomainError
 from study_podcast.infrastructure.config import Settings
 from study_podcast.infrastructure.container import Container
@@ -56,6 +64,7 @@ def create_app(settings_override: Settings | None = None) -> FastAPI:
         queue.router,
         audio.router,
         settings.router,
+        voices.router,
     ):
         app.include_router(router, prefix="/api/v1")
     _configure_frontend_static(app, container.settings)

@@ -5,6 +5,7 @@ from study_podcast.domain.entities import (
     GenerationJob,
     JobInputSnapshot,
     StudyProject,
+    VoiceProfile,
 )
 
 
@@ -65,3 +66,17 @@ class InMemoryJobInputSnapshotRepository:
 
     def get(self, job_id: str) -> JobInputSnapshot | None:
         return self.snapshots.get(job_id)
+
+
+class InMemoryVoiceProfileRepository:
+    def __init__(self) -> None:
+        self.voices: dict[str, VoiceProfile] = {}
+
+    def save(self, profile: VoiceProfile) -> None:
+        self.voices[profile.id] = profile
+
+    def get(self, voice_id: str) -> VoiceProfile | None:
+        return self.voices.get(voice_id)
+
+    def list(self) -> list[VoiceProfile]:
+        return list(self.voices.values())

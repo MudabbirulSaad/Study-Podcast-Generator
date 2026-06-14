@@ -12,6 +12,7 @@ from study_podcast.domain.entities import (
     JobInputSnapshot,
     StudyProject,
     TextChunk,
+    VoiceProfile,
 )
 from study_podcast.domain.value_objects import JobPhase, JobStatus, ScriptSource
 
@@ -217,6 +218,50 @@ class SQLiteStore:
             return None
         return self._snapshot_from_row(row)
 
+    def save_voice_profile(self, profile: VoiceProfile) -> None:
+        if profile.id == "default":
+            return
+        with self._lock:
+            self._connection.execute(
+                """
+                INSERT INTO voice_profiles(
+                  id, display_name, source, sample_path, created_at, updated_at
+                )
+                VALUES (?, ?, ?, ?, ?, ?)
+                ON CONFLICT(id) DO UPDATE SET
+                  display_name=excluded.display_name,
+                  sample_path=excluded.sample_path,
+                  updated_at=excluded.updated_at
+                """,
+                (
+                    profile.id,
+                    profile.display_name,
+                    profile.source,
+                    profile.sample_path,
+                    profile.created_at.isoformat(),
+                    profile.updated_at.isoformat(),
+                ),
+            )
+            self._connection.commit()
+
+    def get_voice_profile(self, voice_id: str) -> VoiceProfile | None:
+        if voice_id == "default":
+            return VoiceProfile.default(datetime.now().astimezone())
+        with self._lock:
+            row = self._connection.execute(
+                "SELECT * FROM voice_profiles WHERE id = ?",
+                (voice_id,),
+            ).fetchone()
+        return self._voice_from_row(row) if row is not None else None
+
+    def list_voice_profiles(self) -> list[VoiceProfile]:
+        with self._lock:
+            rows = self._connection.execute(
+                "SELECT * FROM voice_profiles ORDER BY created_at"
+            ).fetchall()
+        default = VoiceProfile.default(datetime.now().astimezone())
+        return [default, *[self._voice_from_row(row) for row in rows]]
+
     def save_settings(self, values: dict[str, str]) -> None:
         self._connection.executemany(
             """
@@ -283,6 +328,16 @@ class SQLiteStore:
             created_at=datetime.fromisoformat(row["created_at"]),
         )
 
+    def _voice_from_row(self, row: sqlite3.Row) -> VoiceProfile:
+        return VoiceProfile(
+            id=row["id"],
+            display_name=row["display_name"],
+            source=row["source"],
+            sample_path=row["sample_path"],
+            created_at=datetime.fromisoformat(row["created_at"]),
+            updated_at=datetime.fromisoformat(row["updated_at"]),
+        )
+
     def _migrate(self) -> None:
         self._connection.executescript(
             """
@@ -335,6 +390,15 @@ class SQLiteStore:
               voice_profile_id TEXT NOT NULL,
               tts_params TEXT NOT NULL,
               created_at TEXT NOT NULL
+            );
+
+            CREATE TABLE IF NOT EXISTS voice_profiles (
+              id TEXT PRIMARY KEY,
+              display_name TEXT NOT NULL,
+              source TEXT NOT NULL,
+              sample_path TEXT,
+              created_at TEXT NOT NULL,
+              updated_at TEXT NOT NULL
             );
             """
         )
@@ -406,3 +470,17 @@ class SQLiteSettingsRepository:
 
     def list(self) -> dict[str, str]:
         return self.store.list_settings()
+
+
+class SQLiteVoiceProfileRepository:
+    def __init__(self, store: SQLiteStore) -> None:
+        self.store = store
+
+    def save(self, profile: VoiceProfile) -> None:
+        self.store.save_voice_profile(profile)
+
+    def get(self, voice_id: str) -> VoiceProfile | None:
+        return self.store.get_voice_profile(voice_id)
+
+    def list(self) -> list[VoiceProfile]:
+        return self.store.list_voice_profiles()

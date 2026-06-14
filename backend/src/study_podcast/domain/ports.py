@@ -12,6 +12,7 @@ from study_podcast.domain.entities import (
     QueueSummary,
     StudyProject,
     TextChunk,
+    VoiceProfile,
 )
 
 
@@ -37,6 +38,12 @@ class JobRepository(Protocol):
 class JobInputSnapshotRepository(Protocol):
     def save(self, snapshot: JobInputSnapshot) -> None: ...
     def get(self, job_id: str) -> JobInputSnapshot | None: ...
+
+
+class VoiceProfileRepository(Protocol):
+    def save(self, profile: VoiceProfile) -> None: ...
+    def get(self, voice_id: str) -> VoiceProfile | None: ...
+    def list(self) -> list[VoiceProfile]: ...
 
 
 class TtsEngine(Protocol):

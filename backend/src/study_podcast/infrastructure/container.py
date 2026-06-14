@@ -11,6 +11,7 @@ from study_podcast.adapters.outbound.persistence_sqlite import (
     SQLiteScriptRepository,
     SQLiteSettingsRepository,
     SQLiteStore,
+    SQLiteVoiceProfileRepository,
 )
 from study_podcast.adapters.outbound.tts_chatterbox import ChatterboxTtsEngine
 from study_podcast.adapters.outbound.tts_fake import FakeTtsEngine
@@ -40,6 +41,7 @@ class Container:
     projects: SQLiteProjectRepository
     scripts: SQLiteScriptRepository
     snapshots: SQLiteJobInputSnapshotRepository
+    voices: SQLiteVoiceProfileRepository
     jobs: SQLiteJobRepository
     queue: DefaultJobQueue
     storage: LocalFileStorage
@@ -59,11 +61,13 @@ class Container:
         jobs = SQLiteJobRepository(store)
         scripts = SQLiteScriptRepository(store)
         snapshots = SQLiteJobInputSnapshotRepository(store)
+        voices = SQLiteVoiceProfileRepository(store)
         storage = LocalFileStorage(resolved_settings.storage_root)
         tts = _create_tts_engine(resolved_settings)
         runner = GenerationJobRunner(
             scripts=scripts,
             snapshots=snapshots,
+            voices=voices,
             jobs=jobs,
             tts=tts,
             merger=WavAudioMerger(),
@@ -81,6 +85,7 @@ class Container:
             projects=SQLiteProjectRepository(store),
             scripts=scripts,
             snapshots=snapshots,
+            voices=voices,
             jobs=jobs,
             queue=DefaultJobQueue(
                 jobs=jobs,
@@ -110,6 +115,7 @@ class Container:
             runner = GenerationJobRunner(
                 scripts=self.scripts,
                 snapshots=self.snapshots,
+                voices=self.voices,
                 jobs=self.jobs,
                 tts=tts,
                 merger=WavAudioMerger(),

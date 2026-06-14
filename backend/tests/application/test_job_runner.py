@@ -5,11 +5,20 @@ from study_podcast.adapters.outbound.in_memory_repositories import (
     InMemoryJobInputSnapshotRepository,
     InMemoryJobRepository,
     InMemoryScriptRepository,
+    InMemoryVoiceProfileRepository,
 )
 from study_podcast.adapters.outbound.tts_fake import FakeTtsEngine
 from study_podcast.application.job_runner import GenerationJobRunner
 from study_podcast.application.progress import RepositoryProgressReporter
-from study_podcast.domain.entities import ActivePodcastScript, AudioChunk, FinalAudio, GenerationJob
+from study_podcast.domain.entities import (
+    ActivePodcastScript,
+    AudioChunk,
+    FinalAudio,
+    GenerationJob,
+    JobInputSnapshot,
+    TextChunk,
+    VoiceProfile,
+)
 from study_podcast.domain.value_objects import JobStatus, ScriptSource
 
 
@@ -78,9 +87,37 @@ class ExplodingTts(FakeTtsEngine):
         raise RuntimeError("model failed")
 
 
+class RecordingTts(FakeTtsEngine):
+    def __init__(self) -> None:
+        self.calls: list[dict[str, object]] = []
+
+    def synthesize(
+        self,
+        *,
+        chunk,
+        output_path: Path,
+        voice_prompt_path=None,
+        tts_params=None,
+    ) -> AudioChunk:
+        self.calls.append(
+            {
+                "voice_prompt_path": voice_prompt_path,
+                "tts_params": tts_params,
+            }
+        )
+        return super().synthesize(
+            chunk=chunk,
+            output_path=output_path,
+            voice_prompt_path=voice_prompt_path,
+            tts_params=tts_params,
+        )
+
+
 def make_runner(tmp_path: Path, tts=None):
     jobs = InMemoryJobRepository()
     scripts = InMemoryScriptRepository()
+    snapshots = InMemoryJobInputSnapshotRepository()
+    voices = InMemoryVoiceProfileRepository()
     clock = FixedClock()
     job = GenerationJob.create("project-1", clock.now())
     jobs.save(job)
@@ -95,7 +132,8 @@ def make_runner(tmp_path: Path, tts=None):
     )
     runner = GenerationJobRunner(
         scripts=scripts,
-        snapshots=InMemoryJobInputSnapshotRepository(),
+        snapshots=snapshots,
+        voices=voices,
         jobs=jobs,
         tts=tts or FakeTtsEngine(),
         merger=FakeMerger(),
@@ -139,3 +177,37 @@ def test_runner_records_failure_reason(tmp_path: Path) -> None:
 
     assert failed.status is JobStatus.FAILED
     assert failed.failure_reason == "model failed"
+
+
+def test_runner_passes_snapshot_voice_prompt_and_tts_params(tmp_path: Path) -> None:
+    tts = RecordingTts()
+    runner, jobs, job = make_runner(tmp_path, tts=tts)
+    voice = VoiceProfile.uploaded(
+        display_name="Saved voice",
+        sample_path=str(tmp_path / "voices" / "sample.wav"),
+        now=FixedClock().now(),
+    )
+    runner.voices.save(voice)
+    runner.snapshots.save(
+        JobInputSnapshot(
+            job_id=job.id,
+            project_id=job.project_id,
+            script_text="[Narrator] Snapshot text.",
+            script_source=ScriptSource.PASTED,
+            speakers=("Narrator",),
+            chunks=(TextChunk(index=0, speaker="Narrator", text="Snapshot text."),),
+            voice_profile_id=voice.id,
+            tts_params={"temperature": 0.4, "cfg_weight": 0.7},
+            created_at=FixedClock().now(),
+        )
+    )
+
+    completed = runner.run(job.id)
+
+    assert completed.status is JobStatus.COMPLETED
+    assert tts.calls == [
+        {
+            "voice_prompt_path": voice.sample_path,
+            "tts_params": {"temperature": 0.4, "cfg_weight": 0.7},
+        }
+    ]

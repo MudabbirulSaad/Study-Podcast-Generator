@@ -188,6 +188,54 @@ def test_upload_rejects_non_txt_file(tmp_path) -> None:
     }
 
 
+def test_voice_profiles_include_default_and_uploaded_samples_are_safely_stored(tmp_path) -> None:
+    client = TestClient(
+        create_app(
+            Settings(
+                database_path=tmp_path / "app.sqlite3",
+                env_file_path=tmp_path / ".env",
+                storage_root=tmp_path / "storage",
+            )
+        )
+    )
+
+    default_voices = client.get("/api/v1/voices").json()
+    uploaded = client.post(
+        "/api/v1/voices",
+        data={"display_name": "My seminar voice"},
+        files={"file": ("../../voice.wav", b"RIFFvoice", "audio/wav")},
+    )
+    voices = client.get("/api/v1/voices").json()
+
+    assert default_voices[0]["id"] == "default"
+    assert uploaded.status_code == 201
+    assert uploaded.json()["display_name"] == "My seminar voice"
+    assert uploaded.json()["source"] == "uploaded"
+    assert ".." not in uploaded.json()["sample_path"]
+    assert voices[-1]["id"] == uploaded.json()["id"]
+
+
+def test_voice_upload_rejects_unsupported_file_type(tmp_path) -> None:
+    client = TestClient(
+        create_app(
+            Settings(
+                database_path=tmp_path / "app.sqlite3",
+                env_file_path=tmp_path / ".env",
+                storage_root=tmp_path / "storage",
+            )
+        )
+    )
+
+    response = client.post(
+        "/api/v1/voices",
+        data={"display_name": "Bad voice"},
+        files={"file": ("voice.exe", b"nope", "application/octet-stream")},
+    )
+
+    assert response.status_code == 400
+    assert response.json()["message"] == "voice sample must be wav, mp3, flac, or m4a"
+
+
 def test_api_generates_and_downloads_final_wav_with_fake_engine(tmp_path) -> None:
     client = TestClient(
         create_app(
@@ -216,6 +264,8 @@ def test_api_generates_and_downloads_final_wav_with_fake_engine(tmp_path) -> Non
         sleep(0.05)
     download = client.get(f"/api/v1/projects/{project_id}/audio/final")
     stream = client.get(f"/api/v1/projects/{project_id}/audio/stream")
+    job_download = client.get(f"/api/v1/jobs/{job['id']}/audio/final")
+    job_stream = client.get(f"/api/v1/jobs/{job['id']}/audio/stream")
 
     assert completed["status"] == "completed"
     assert download.status_code == 200
@@ -224,6 +274,10 @@ def test_api_generates_and_downloads_final_wav_with_fake_engine(tmp_path) -> Non
     assert download.content[:4] == b"RIFF"
     assert stream.status_code == 200
     assert stream.headers["cache-control"] == "no-store"
+    assert job_download.status_code == 200
+    assert job_download.content[:4] == b"RIFF"
+    assert job_stream.status_code == 200
+    assert job_stream.headers["cache-control"] == "no-store"
 
 
 def test_missing_resource_uses_error_envelope(tmp_path) -> None:
