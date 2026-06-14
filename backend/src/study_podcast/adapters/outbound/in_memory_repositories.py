@@ -1,6 +1,11 @@
 from __future__ import annotations
 
-from study_podcast.domain.entities import ActivePodcastScript, GenerationJob, StudyProject
+from study_podcast.domain.entities import (
+    ActivePodcastScript,
+    GenerationJob,
+    JobInputSnapshot,
+    StudyProject,
+)
 
 
 class InMemoryProjectRepository:
@@ -49,3 +54,14 @@ class InMemoryJobRepository:
 
     def list_unfinished(self) -> list[GenerationJob]:
         return [job for job in self.list() if job.status.is_active]
+
+
+class InMemoryJobInputSnapshotRepository:
+    def __init__(self) -> None:
+        self.snapshots: dict[str, JobInputSnapshot] = {}
+
+    def save(self, snapshot: JobInputSnapshot) -> None:
+        self.snapshots[snapshot.job_id] = snapshot
+
+    def get(self, job_id: str) -> JobInputSnapshot | None:
+        return self.snapshots.get(job_id)

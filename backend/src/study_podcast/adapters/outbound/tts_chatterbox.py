@@ -10,10 +10,20 @@ class ChatterboxTtsEngine:
         self.device = device
         self._model = None
 
-    def synthesize(self, *, chunk: TextChunk, output_path: Path) -> AudioChunk:
+    def synthesize(
+        self,
+        *,
+        chunk: TextChunk,
+        output_path: Path,
+        voice_prompt_path=None,
+        tts_params: dict[str, float] | None = None,
+    ) -> AudioChunk:
         model = self._load_model()
         output_path.parent.mkdir(parents=True, exist_ok=True)
-        audio = model.generate(chunk.text)
+        generate_kwargs = dict(tts_params or {})
+        if voice_prompt_path:
+            generate_kwargs["audio_prompt_path"] = str(voice_prompt_path)
+        audio = model.generate(chunk.text, **generate_kwargs)
         self._save_wav(audio=audio, output_path=output_path, sample_rate=model.sr)
         return AudioChunk(
             chunk_index=chunk.index,

@@ -5,6 +5,7 @@ from study_podcast.adapters.outbound.audio_merger_wav import WavAudioMerger
 from study_podcast.adapters.outbound.filesystem import LocalFileStorage
 from study_podcast.adapters.outbound.in_process_worker_pool import InProcessWorkerPool
 from study_podcast.adapters.outbound.persistence_sqlite import (
+    SQLiteJobInputSnapshotRepository,
     SQLiteJobRepository,
     SQLiteProjectRepository,
     SQLiteScriptRepository,
@@ -38,6 +39,7 @@ class Container:
     env_writer: DotEnvFileWriter
     projects: SQLiteProjectRepository
     scripts: SQLiteScriptRepository
+    snapshots: SQLiteJobInputSnapshotRepository
     jobs: SQLiteJobRepository
     queue: DefaultJobQueue
     storage: LocalFileStorage
@@ -56,10 +58,12 @@ class Container:
         apply_startup_overrides(resolved_settings, settings_repo.list())
         jobs = SQLiteJobRepository(store)
         scripts = SQLiteScriptRepository(store)
+        snapshots = SQLiteJobInputSnapshotRepository(store)
         storage = LocalFileStorage(resolved_settings.storage_root)
         tts = _create_tts_engine(resolved_settings)
         runner = GenerationJobRunner(
             scripts=scripts,
+            snapshots=snapshots,
             jobs=jobs,
             tts=tts,
             merger=WavAudioMerger(),
@@ -76,6 +80,7 @@ class Container:
             env_writer=DotEnvFileWriter(resolved_settings.env_file_path),
             projects=SQLiteProjectRepository(store),
             scripts=scripts,
+            snapshots=snapshots,
             jobs=jobs,
             queue=DefaultJobQueue(
                 jobs=jobs,
@@ -104,6 +109,7 @@ class Container:
             tts = _create_tts_engine(self.settings)
             runner = GenerationJobRunner(
                 scripts=self.scripts,
+                snapshots=self.snapshots,
                 jobs=self.jobs,
                 tts=tts,
                 merger=WavAudioMerger(),

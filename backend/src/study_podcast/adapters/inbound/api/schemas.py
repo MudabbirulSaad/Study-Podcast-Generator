@@ -1,11 +1,12 @@
 from datetime import datetime
 from typing import Literal
 
-from pydantic import BaseModel, ConfigDict
+from pydantic import BaseModel, ConfigDict, Field
 
 from study_podcast.domain.entities import (
     ActivePodcastScript,
     GenerationJob,
+    JobInputSnapshot,
     QueueSummary,
     StudyProject,
     TextChunk,
@@ -41,6 +42,11 @@ class ProjectDetailResponse(ProjectResponse):
 class SaveScriptRequest(BaseModel):
     text: str
     source: Literal["pasted", "uploaded"] = "pasted"
+
+
+class StartJobRequest(BaseModel):
+    voice_profile_id: str = "default"
+    tts_params: dict[str, float] = Field(default_factory=dict)
 
 
 class ChunkResponse(BaseModel):
@@ -92,10 +98,45 @@ class JobResponse(BaseModel):
     started_at: datetime | None
     updated_at: datetime
     completed_at: datetime | None
+    snapshot: "JobSnapshotResponse | None" = None
 
     @classmethod
-    def from_domain(cls, job: GenerationJob) -> "JobResponse":
-        return cls.model_validate(job, from_attributes=True)
+    def from_domain(
+        cls,
+        job: GenerationJob,
+        snapshot: JobInputSnapshot | None = None,
+    ) -> "JobResponse":
+        response = cls.model_validate(job, from_attributes=True)
+        response.snapshot = (
+            JobSnapshotResponse.from_domain(snapshot) if snapshot is not None else None
+        )
+        return response
+
+
+class JobSnapshotResponse(BaseModel):
+    job_id: str
+    project_id: str
+    script_text: str
+    script_source: str
+    speakers: list[str]
+    chunks: list[ChunkResponse]
+    voice_profile_id: str
+    tts_params: dict[str, float]
+    created_at: datetime
+
+    @classmethod
+    def from_domain(cls, snapshot: JobInputSnapshot) -> "JobSnapshotResponse":
+        return cls(
+            job_id=snapshot.job_id,
+            project_id=snapshot.project_id,
+            script_text=snapshot.script_text,
+            script_source=snapshot.script_source.value,
+            speakers=list(snapshot.speakers),
+            chunks=[ChunkResponse.from_domain(chunk) for chunk in snapshot.chunks],
+            voice_profile_id=snapshot.voice_profile_id,
+            tts_params=snapshot.tts_params,
+            created_at=snapshot.created_at,
+        )
 
 
 class QueueResponse(BaseModel):

@@ -79,6 +79,47 @@ def test_projects_are_listed_newest_first_and_detail_includes_summary(tmp_path) 
     assert detail["latest_jobs"][0]["id"] == job["id"]
 
 
+def test_generation_job_stores_immutable_script_snapshot_and_can_rerun(tmp_path) -> None:
+    client = TestClient(
+        create_app(
+            Settings(
+                database_path=tmp_path / "app.sqlite3",
+                env_file_path=tmp_path / ".env",
+                auto_start_worker_pool=False,
+                max_chunk_chars=50,
+            )
+        )
+    )
+    project_id = client.post("/api/v1/projects", json={"title": "Snapshots"}).json()["id"]
+    client.put(
+        f"/api/v1/projects/{project_id}/script",
+        json={"text": "[S1] Original script.", "source": "pasted"},
+    )
+
+    job = client.post(
+        f"/api/v1/projects/{project_id}/jobs",
+        json={"tts_params": {"temperature": 0.4, "cfg_weight": 0.7}},
+    ).json()
+    client.post(f"/api/v1/jobs/{job['id']}/cancel")
+    client.put(
+        f"/api/v1/projects/{project_id}/script",
+        json={"text": "[S1] Edited script.", "source": "pasted"},
+    )
+
+    snapshot_script = client.get(f"/api/v1/jobs/{job['id']}/script")
+    job_detail = client.get(f"/api/v1/jobs/{job['id']}").json()
+    rerun = client.post(f"/api/v1/jobs/{job['id']}/rerun").json()
+    rerun_script = client.get(f"/api/v1/jobs/{rerun['id']}/script")
+
+    assert snapshot_script.status_code == 200
+    assert snapshot_script.json()["text"] == "[S1] Original script."
+    assert job_detail["snapshot"]["script_text"] == "[S1] Original script."
+    assert job_detail["snapshot"]["tts_params"]["temperature"] == 0.4
+    assert rerun["status"] == "queued"
+    assert rerun["id"] != job["id"]
+    assert rerun_script.json()["text"] == "[S1] Original script."
+
+
 def test_cancel_job_api(tmp_path) -> None:
     client = TestClient(
         create_app(

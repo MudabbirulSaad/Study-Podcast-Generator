@@ -8,6 +8,7 @@ from study_podcast.domain.entities import (
     AudioChunk,
     FinalAudio,
     GenerationJob,
+    JobInputSnapshot,
     QueueSummary,
     StudyProject,
     TextChunk,
@@ -33,10 +34,22 @@ class JobRepository(Protocol):
     def list_unfinished(self) -> list[GenerationJob]: ...
 
 
+class JobInputSnapshotRepository(Protocol):
+    def save(self, snapshot: JobInputSnapshot) -> None: ...
+    def get(self, job_id: str) -> JobInputSnapshot | None: ...
+
+
 class TtsEngine(Protocol):
     engine_key: str
 
-    def synthesize(self, *, chunk: TextChunk, output_path: Any) -> AudioChunk: ...
+    def synthesize(
+        self,
+        *,
+        chunk: TextChunk,
+        output_path: Any,
+        voice_prompt_path: Any | None = None,
+        tts_params: dict[str, float] | None = None,
+    ) -> AudioChunk: ...
 
 
 class AudioMerger(Protocol):

@@ -6,6 +6,7 @@ from study_podcast.domain.errors import DomainError
 from study_podcast.domain.ports import (
     AudioMerger,
     FileStorage,
+    JobInputSnapshotRepository,
     JobRepository,
     ProgressReporter,
     ScriptRepository,
@@ -18,6 +19,7 @@ from study_podcast.domain.value_objects import JobStatus
 @dataclass
 class GenerationJobRunner:
     scripts: ScriptRepository
+    snapshots: JobInputSnapshotRepository
     jobs: JobRepository
     tts: TtsEngine
     merger: AudioMerger
@@ -37,14 +39,19 @@ class GenerationJobRunner:
         try:
             job.mark_running(self.clock.now())
             self.progress.save(job)
-            script = self.scripts.get_active(job.project_id)
-            if script is None:
+            snapshot = self.snapshots.get(job.id)
+            script = self.scripts.get_active(job.project_id) if snapshot is None else None
+            if snapshot is None and script is None:
                 raise DomainError("script not found")
 
-            chunks = split_script_into_chunks(
-                script.text,
-                max_chunk_chars=self.max_chunk_chars,
-                max_chunks=self.max_chunks,
+            chunks = (
+                list(snapshot.chunks)
+                if snapshot is not None
+                else split_script_into_chunks(
+                    script.text,
+                    max_chunk_chars=self.max_chunk_chars,
+                    max_chunks=self.max_chunks,
+                )
             )
             job.set_chunking(total_chunks=len(chunks), now=self.clock.now())
             self.progress.save(job)
@@ -57,7 +64,12 @@ class GenerationJobRunner:
                     self.progress.save(latest)
                     return latest
                 output_path = self.storage.path_for_chunk(job.project_id, job.id, chunk.index)
-                audio = self.tts.synthesize(chunk=chunk, output_path=output_path)
+                audio = self.tts.synthesize(
+                    chunk=chunk,
+                    output_path=output_path,
+                    voice_prompt_path=None,
+                    tts_params=snapshot.tts_params if snapshot is not None else {},
+                )
                 audio_chunks.append(audio)
                 job.record_chunk_progress(
                     completed_chunks=len(audio_chunks),

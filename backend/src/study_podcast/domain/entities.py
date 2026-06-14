@@ -39,6 +39,19 @@ class TextChunk:
     text: str
 
 
+@dataclass(frozen=True)
+class JobInputSnapshot:
+    job_id: str
+    project_id: str
+    script_text: str
+    script_source: ScriptSource
+    speakers: tuple[str, ...]
+    chunks: tuple[TextChunk, ...]
+    voice_profile_id: str
+    tts_params: dict[str, float]
+    created_at: datetime
+
+
 @dataclass
 class GenerationJob:
     id: str

@@ -2,6 +2,7 @@ from datetime import UTC, datetime
 from pathlib import Path
 
 from study_podcast.adapters.outbound.in_memory_repositories import (
+    InMemoryJobInputSnapshotRepository,
     InMemoryJobRepository,
     InMemoryScriptRepository,
 )
@@ -45,8 +46,20 @@ class CancellingTts(FakeTtsEngine):
         self.jobs = jobs
         self.clock = clock
 
-    def synthesize(self, *, chunk, output_path: Path) -> AudioChunk:
-        audio = super().synthesize(chunk=chunk, output_path=output_path)
+    def synthesize(
+        self,
+        *,
+        chunk,
+        output_path: Path,
+        voice_prompt_path=None,
+        tts_params=None,
+    ) -> AudioChunk:
+        audio = super().synthesize(
+            chunk=chunk,
+            output_path=output_path,
+            voice_prompt_path=voice_prompt_path,
+            tts_params=tts_params,
+        )
         job = self.jobs.list()[0]
         job.request_cancellation(self.clock.now())
         self.jobs.save(job)
@@ -54,7 +67,14 @@ class CancellingTts(FakeTtsEngine):
 
 
 class ExplodingTts(FakeTtsEngine):
-    def synthesize(self, *, chunk, output_path: Path) -> AudioChunk:
+    def synthesize(
+        self,
+        *,
+        chunk,
+        output_path: Path,
+        voice_prompt_path=None,
+        tts_params=None,
+    ) -> AudioChunk:
         raise RuntimeError("model failed")
 
 
@@ -75,6 +95,7 @@ def make_runner(tmp_path: Path, tts=None):
     )
     runner = GenerationJobRunner(
         scripts=scripts,
+        snapshots=InMemoryJobInputSnapshotRepository(),
         jobs=jobs,
         tts=tts or FakeTtsEngine(),
         merger=FakeMerger(),
