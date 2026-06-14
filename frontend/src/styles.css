@@ -108,7 +108,9 @@ button {
   padding: 9px 14px;
 }
 
-button:hover {
+button:hover,
+.action-link:hover,
+.file-button:hover {
   background: #c75f43;
 }
 
@@ -121,6 +123,29 @@ textarea {
 
 input {
   min-width: 240px;
+}
+
+.file-button,
+.action-link {
+  align-items: center;
+  background: #243437;
+  border: 1px solid #9aa09a;
+  color: #fff8ec;
+  cursor: pointer;
+  display: inline-flex;
+  gap: 8px;
+  min-height: 40px;
+  padding: 9px 14px;
+  text-decoration: none;
+}
+
+.file-button input {
+  height: 1px;
+  min-width: 0;
+  opacity: 0;
+  overflow: hidden;
+  position: absolute;
+  width: 1px;
 }
 
 textarea {
@@ -190,6 +215,16 @@ textarea {
   background: #c75f43;
   display: block;
   height: 100%;
+}
+
+.audio-actions {
+  display: grid;
+  gap: 10px;
+  max-width: 620px;
+}
+
+.audio-actions audio {
+  width: 100%;
 }
 
 .eyebrow {

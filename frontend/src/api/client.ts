@@ -13,9 +13,21 @@ async function request<T>(path: string, options?: RequestInit): Promise<T> {
   return response.json() as Promise<T>;
 }
 
+async function uploadRequest<T>(path: string, formData: FormData): Promise<T> {
+  const response = await fetch(`${API_BASE}${path}`, {
+    method: "PUT",
+    body: formData,
+  });
+  if (!response.ok) {
+    throw await response.json();
+  }
+  return response.json() as Promise<T>;
+}
+
 export type ApiClient = {
   createProject(title: string): Promise<Project>;
   saveScript(projectId: string, text: string): Promise<ScriptResponse>;
+  uploadScript(projectId: string, file: File): Promise<ScriptResponse>;
   startJob(projectId: string): Promise<Job>;
   getJob(jobId: string): Promise<Job>;
   cancelJob(jobId: string): Promise<Job>;
@@ -34,6 +46,11 @@ export const apiClient: ApiClient = {
       method: "PUT",
       body: JSON.stringify({ text, source: "pasted" }),
     }),
+  uploadScript: (projectId, file) => {
+    const formData = new FormData();
+    formData.append("file", file);
+    return uploadRequest<ScriptResponse>(`/projects/${projectId}/script`, formData);
+  },
   startJob: (projectId) =>
     request<Job>(`/projects/${projectId}/jobs`, {
       method: "POST",

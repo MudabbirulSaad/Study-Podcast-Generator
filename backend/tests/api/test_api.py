@@ -66,6 +66,46 @@ def test_cancel_job_api(tmp_path) -> None:
     assert cancelled.json()["status"] == "cancelled"
 
 
+def test_txt_upload_saves_active_script(tmp_path) -> None:
+    client = TestClient(
+        create_app(
+            Settings(
+                database_path=tmp_path / "app.sqlite3",
+                max_chunk_chars=20,
+                auto_start_worker_pool=False,
+            )
+        )
+    )
+    project_id = client.post("/api/v1/projects", json={"title": "Uploaded"}).json()["id"]
+
+    response = client.put(
+        f"/api/v1/projects/{project_id}/script",
+        files={"file": ("script.txt", b"[S1] Uploaded line. More notes.", "text/plain")},
+    )
+
+    assert response.status_code == 200
+    assert response.json()["source"] == "uploaded"
+    assert response.json()["speakers"] == ["S1"]
+    assert response.json()["chunks"][0]["text"] == "Uploaded line."
+
+
+def test_upload_rejects_non_txt_file(tmp_path) -> None:
+    client = TestClient(create_app(Settings(database_path=tmp_path / "app.sqlite3")))
+    project_id = client.post("/api/v1/projects", json={"title": "Upload safety"}).json()["id"]
+
+    response = client.put(
+        f"/api/v1/projects/{project_id}/script",
+        files={"file": ("script.md", b"# nope", "text/markdown")},
+    )
+
+    assert response.status_code == 400
+    assert response.json() == {
+        "code": "domain_error",
+        "message": "uploaded script must be a .txt file",
+        "details": None,
+    }
+
+
 def test_missing_resource_uses_error_envelope() -> None:
     client = TestClient(create_app(Settings(database_path=":memory:")))
 

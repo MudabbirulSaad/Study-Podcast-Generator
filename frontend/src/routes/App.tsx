@@ -17,6 +17,8 @@ function ProjectsRoute({ client }: { client: ApiClient }) {
   const [queue, setQueue] = useState<QueueSummary | null>(null);
   const [scriptText, setScriptText] = useState("[S1] Cells divide. [Narrator] Tissues grow.");
   const [message, setMessage] = useState("");
+  const audioUrl = project ? `/api/v1/projects/${project.id}/audio/stream` : "";
+  const downloadUrl = project ? `/api/v1/projects/${project.id}/audio/final` : "";
 
   useEffect(() => {
     if (!job || ["completed", "failed", "cancelled", "interrupted"].includes(job.status)) {
@@ -48,6 +50,17 @@ function ProjectsRoute({ client }: { client: ApiClient }) {
       return;
     }
     setScript(await client.saveScript(project.id, scriptText));
+  }
+
+  async function uploadScript(file: File | null) {
+    if (!project) {
+      setMessage("Create a project first.");
+      return;
+    }
+    if (!file) {
+      return;
+    }
+    setScript(await client.uploadScript(project.id, file));
   }
 
   async function startJob() {
@@ -86,6 +99,15 @@ function ProjectsRoute({ client }: { client: ApiClient }) {
       <textarea id="script" value={scriptText} onChange={(event) => setScriptText(event.target.value)} />
       <div className="tool-row">
         <button onClick={saveScript}>Save Script</button>
+        <label className="file-button">
+          Upload TXT
+          <input
+            aria-label="Upload TXT"
+            accept=".txt,text/plain"
+            type="file"
+            onChange={(event) => void uploadScript(event.target.files?.[0] ?? null)}
+          />
+        </label>
         <button onClick={startJob}>Start Generation</button>
       </div>
       {message && <p className="message">{message}</p>}
@@ -127,15 +149,18 @@ function ProjectsRoute({ client }: { client: ApiClient }) {
           </p>
           {job.message && <p className="message">{job.message}</p>}
           {["completed"].includes(job.status) && (
-            <div className="tool-row">
-              <button>
-                <Play aria-hidden="true" />
-                Play
-              </button>
-              <button>
+            <div className="audio-actions">
+              <audio controls src={audioUrl}>
+                <track kind="captions" />
+              </audio>
+              <a className="action-link" href={downloadUrl} download>
                 <Download aria-hidden="true" />
                 Download WAV
-              </button>
+              </a>
+              <a className="action-link" href={audioUrl}>
+                <Play aria-hidden="true" />
+                Open Stream
+              </a>
             </div>
           )}
         </section>

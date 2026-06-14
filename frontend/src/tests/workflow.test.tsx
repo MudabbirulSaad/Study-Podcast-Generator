@@ -66,6 +66,7 @@ function makeClient(): ApiClient {
     startJob: async () => makeJob(),
     getJob: async () => makeJob({ status: "running", phase: "synthesizing", progress_percent: 45 }),
     cancelJob: async () => makeJob({ status: "cancelled", message: "Cancelled" }),
+    uploadScript: async () => script,
     getQueue: async () => queue,
     getTtsSettings: async () => settings,
   };
@@ -94,5 +95,28 @@ describe("workflow UI", () => {
     fireEvent.click(screen.getByRole("button", { name: "Cancel job" }));
     await waitFor(() => expect(screen.getByText("cancelled / queued / 0%")).toBeInTheDocument());
     expect(screen.getByText("Cancelled")).toBeInTheDocument();
+  });
+
+  it("shows playback and download controls for a completed job", async () => {
+    const client = makeClient();
+    client.startJob = async () =>
+      makeJob({ status: "completed", phase: "completed", progress_percent: 100, completed_chunks: 2 });
+
+    render(
+      <MemoryRouter>
+        <App client={client} />
+      </MemoryRouter>,
+    );
+
+    fireEvent.click(screen.getByRole("button", { name: "Create Project" }));
+    await screen.findByText("Active project: Biology 101");
+    fireEvent.click(screen.getByRole("button", { name: "Start Generation" }));
+
+    expect(await screen.findByText("completed / completed / 100%")).toBeInTheDocument();
+    expect(screen.getByRole("link", { name: "Download WAV" })).toHaveAttribute(
+      "href",
+      "/api/v1/projects/project-1/audio/final",
+    );
+    expect(screen.getByLabelText("Job progress")).toBeInTheDocument();
   });
 });
