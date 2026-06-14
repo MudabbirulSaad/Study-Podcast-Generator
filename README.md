@@ -17,7 +17,7 @@ uv sync
 uv run pytest
 uv run ruff check .
 uv run ruff format --check .
-uv run uvicorn study_podcast.infrastructure.app:create_app --factory --reload
+uv run uvicorn --app-dir src study_podcast.infrastructure.app:create_app --factory --reload
 ```
 
 Frontend:
