@@ -17,8 +17,8 @@ function ProjectsRoute({ client }: { client: ApiClient }) {
   const [queue, setQueue] = useState<QueueSummary | null>(null);
   const [scriptText, setScriptText] = useState("[S1] Cells divide. [Narrator] Tissues grow.");
   const [message, setMessage] = useState("");
-  const audioUrl = project ? `/api/v1/projects/${project.id}/audio/stream` : "";
-  const downloadUrl = project ? `/api/v1/projects/${project.id}/audio/final` : "";
+  const audioUrl = project ? client.audioStreamUrl(project.id) : "";
+  const downloadUrl = project ? client.finalAudioUrl(project.id) : "";
 
   useEffect(() => {
     if (!job || ["completed", "failed", "cancelled", "interrupted"].includes(job.status)) {

@@ -1,3 +1,5 @@
+from time import sleep
+
 from fastapi.testclient import TestClient
 
 from study_podcast.infrastructure.app import create_app
@@ -104,6 +106,37 @@ def test_upload_rejects_non_txt_file(tmp_path) -> None:
         "message": "uploaded script must be a .txt file",
         "details": None,
     }
+
+
+def test_api_generates_and_downloads_final_wav_with_fake_engine(tmp_path) -> None:
+    client = TestClient(
+        create_app(
+            Settings(
+                database_path=tmp_path / "app.sqlite3",
+                storage_root=tmp_path / "storage",
+                max_chunk_chars=20,
+            )
+        )
+    )
+    project_id = client.post("/api/v1/projects", json={"title": "Audio"}).json()["id"]
+    client.put(
+        f"/api/v1/projects/{project_id}/script",
+        json={"text": "[S1] Cells divide. Tissues grow.", "source": "pasted"},
+    )
+
+    job = client.post(f"/api/v1/projects/{project_id}/jobs").json()
+    completed = {}
+    for _ in range(20):
+        completed = client.get(f"/api/v1/jobs/{job['id']}").json()
+        if completed["status"] == "completed":
+            break
+        sleep(0.05)
+    download = client.get(f"/api/v1/projects/{project_id}/audio/final")
+
+    assert completed["status"] == "completed"
+    assert download.status_code == 200
+    assert download.headers["content-type"] == "audio/wav"
+    assert download.content[:4] == b"RIFF"
 
 
 def test_missing_resource_uses_error_envelope() -> None:

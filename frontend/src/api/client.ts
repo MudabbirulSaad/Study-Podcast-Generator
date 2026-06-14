@@ -33,6 +33,8 @@ export type ApiClient = {
   cancelJob(jobId: string): Promise<Job>;
   getQueue(): Promise<QueueSummary>;
   getTtsSettings(): Promise<TtsSettings>;
+  finalAudioUrl(projectId: string): string;
+  audioStreamUrl(projectId: string): string;
 };
 
 export const apiClient: ApiClient = {
@@ -62,4 +64,6 @@ export const apiClient: ApiClient = {
     }),
   getQueue: () => request<QueueSummary>("/queue"),
   getTtsSettings: () => request<TtsSettings>("/settings/tts-engines"),
+  finalAudioUrl: (projectId) => `${API_BASE}/projects/${projectId}/audio/final`,
+  audioStreamUrl: (projectId) => `${API_BASE}/projects/${projectId}/audio/stream`,
 };

@@ -69,6 +69,8 @@ function makeClient(): ApiClient {
     uploadScript: async () => script,
     getQueue: async () => queue,
     getTtsSettings: async () => settings,
+    finalAudioUrl: (projectId) => `http://api.test/api/v1/projects/${projectId}/audio/final`,
+    audioStreamUrl: (projectId) => `http://api.test/api/v1/projects/${projectId}/audio/stream`,
   };
 }
 
@@ -115,7 +117,7 @@ describe("workflow UI", () => {
     expect(await screen.findByText("completed / completed / 100%")).toBeInTheDocument();
     expect(screen.getByRole("link", { name: "Download WAV" })).toHaveAttribute(
       "href",
-      "/api/v1/projects/project-1/audio/final",
+      "http://api.test/api/v1/projects/project-1/audio/final",
     );
     expect(screen.getByLabelText("Job progress")).toBeInTheDocument();
   });
