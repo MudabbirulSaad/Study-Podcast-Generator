@@ -6,7 +6,13 @@ from study_podcast.infrastructure.config import Settings
 
 def test_project_script_job_and_queue_api_flow(tmp_path) -> None:
     client = TestClient(
-        create_app(Settings(max_chunk_chars=20, database_path=tmp_path / "app.sqlite3"))
+        create_app(
+            Settings(
+                max_chunk_chars=20,
+                database_path=tmp_path / "app.sqlite3",
+                auto_start_worker_pool=False,
+            )
+        )
     )
 
     project_response = client.post("/api/v1/projects", json={"title": "Biology"})
@@ -44,7 +50,9 @@ def test_project_script_job_and_queue_api_flow(tmp_path) -> None:
 
 
 def test_cancel_job_api(tmp_path) -> None:
-    client = TestClient(create_app(Settings(database_path=tmp_path / "app.sqlite3")))
+    client = TestClient(
+        create_app(Settings(database_path=tmp_path / "app.sqlite3", auto_start_worker_pool=False))
+    )
     project_id = client.post("/api/v1/projects", json={"title": "Chemistry"}).json()["id"]
     client.put(
         f"/api/v1/projects/{project_id}/script",

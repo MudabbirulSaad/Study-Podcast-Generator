@@ -11,7 +11,10 @@ router = APIRouter(tags=["jobs"])
     status_code=status.HTTP_202_ACCEPTED,
 )
 def submit_job(project_id: str, request: Request) -> JobResponse:
-    job = request.app.state.container.queue.submit_generation_job(project_id)
+    container = request.app.state.container
+    job = container.queue.submit_generation_job(project_id)
+    if container.settings.auto_start_worker_pool:
+        container.worker_pool.drain_queued()
     return JobResponse.from_domain(job)
 
 

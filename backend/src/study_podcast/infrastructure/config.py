@@ -15,6 +15,7 @@ class Settings(BaseSettings):
     chatterbox_max_concurrent_jobs: int = 1
     audio_merge_max_concurrent_jobs: int = 1
     max_active_jobs_total: int = 10
+    auto_start_worker_pool: bool = True
     frontend_origin: str = "http://localhost:5173"
     active_tts_engine: str = "fake"
 
