@@ -66,8 +66,10 @@ const client: ApiClient = {
   saveSettings: async () => runtimeSettings,
   reloadSettings: async () => runtimeStatus,
   getRuntimeStatus: async () => runtimeStatus,
-  finalAudioUrl: (projectId) => `/api/v1/projects/${projectId}/audio/final`,
-  audioStreamUrl: (projectId) => `/api/v1/projects/${projectId}/audio/stream`,
+  finalAudioUrl: (projectId, version) =>
+    `/api/v1/projects/${projectId}/audio/final${version ? `?v=${version}` : ""}`,
+  audioStreamUrl: (projectId, version) =>
+    `/api/v1/projects/${projectId}/audio/stream${version ? `?v=${version}` : ""}`,
 };
 
 describe("App", () => {

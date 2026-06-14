@@ -147,11 +147,15 @@ def test_api_generates_and_downloads_final_wav_with_fake_engine(tmp_path) -> Non
             break
         sleep(0.05)
     download = client.get(f"/api/v1/projects/{project_id}/audio/final")
+    stream = client.get(f"/api/v1/projects/{project_id}/audio/stream")
 
     assert completed["status"] == "completed"
     assert download.status_code == 200
     assert download.headers["content-type"] == "audio/wav"
+    assert download.headers["cache-control"] == "no-store"
     assert download.content[:4] == b"RIFF"
+    assert stream.status_code == 200
+    assert stream.headers["cache-control"] == "no-store"
 
 
 def test_missing_resource_uses_error_envelope(tmp_path) -> None:

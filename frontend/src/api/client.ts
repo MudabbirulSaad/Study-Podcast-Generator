@@ -50,8 +50,8 @@ export type ApiClient = {
   saveSettings(values: RuntimeSettings["values"]): Promise<RuntimeSettings>;
   reloadSettings(): Promise<RuntimeStatus>;
   getRuntimeStatus(): Promise<RuntimeStatus>;
-  finalAudioUrl(projectId: string): string;
-  audioStreamUrl(projectId: string): string;
+  finalAudioUrl(projectId: string, version?: string): string;
+  audioStreamUrl(projectId: string, version?: string): string;
 };
 
 export const apiClient: ApiClient = {
@@ -93,6 +93,8 @@ export const apiClient: ApiClient = {
       method: "POST",
     }),
   getRuntimeStatus: () => request<RuntimeStatus>("/settings/runtime-status"),
-  finalAudioUrl: (projectId) => `${API_BASE}/projects/${projectId}/audio/final`,
-  audioStreamUrl: (projectId) => `${API_BASE}/projects/${projectId}/audio/stream`,
+  finalAudioUrl: (projectId, version) =>
+    `${API_BASE}/projects/${projectId}/audio/final${version ? `?v=${encodeURIComponent(version)}` : ""}`,
+  audioStreamUrl: (projectId, version) =>
+    `${API_BASE}/projects/${projectId}/audio/stream${version ? `?v=${encodeURIComponent(version)}` : ""}`,
 };

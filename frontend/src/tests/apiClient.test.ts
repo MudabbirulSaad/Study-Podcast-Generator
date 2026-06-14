@@ -10,6 +10,12 @@ describe("apiClient", () => {
   it("defaults to same-origin api URLs for production-style serving", () => {
     expect(apiClient.finalAudioUrl("project-1")).toBe("/api/v1/projects/project-1/audio/final");
     expect(apiClient.audioStreamUrl("project-1")).toBe("/api/v1/projects/project-1/audio/stream");
+    expect(apiClient.finalAudioUrl("project-1", "job 1")).toBe(
+      "/api/v1/projects/project-1/audio/final?v=job%201",
+    );
+    expect(apiClient.audioStreamUrl("project-1", "job 1")).toBe(
+      "/api/v1/projects/project-1/audio/stream?v=job%201",
+    );
   });
 
   it("throws a stable envelope for non-json error responses", async () => {

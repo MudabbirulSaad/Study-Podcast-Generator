@@ -17,8 +17,9 @@ function ProjectsRoute({ client }: { client: ApiClient }) {
   const [queue, setQueue] = useState<QueueSummary | null>(null);
   const [scriptText, setScriptText] = useState("[S1] Cells divide. [Narrator] Tissues grow.");
   const [message, setMessage] = useState("");
-  const audioUrl = project ? client.audioStreamUrl(project.id) : "";
-  const downloadUrl = project ? client.finalAudioUrl(project.id) : "";
+  const audioVersion = job?.status === "completed" ? job.id : undefined;
+  const audioUrl = project ? client.audioStreamUrl(project.id, audioVersion) : "";
+  const downloadUrl = project ? client.finalAudioUrl(project.id, audioVersion) : "";
 
   useEffect(() => {
     if (!job || ["completed", "failed", "cancelled", "interrupted"].includes(job.status)) {
@@ -150,7 +151,7 @@ function ProjectsRoute({ client }: { client: ApiClient }) {
           {job.message && <p className="message">{job.message}</p>}
           {["completed"].includes(job.status) && (
             <div className="audio-actions">
-              <audio controls src={audioUrl}>
+              <audio aria-label="Generated podcast audio" controls src={audioUrl}>
                 <track kind="captions" />
               </audio>
               <a className="action-link" href={downloadUrl} download>

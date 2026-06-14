@@ -130,8 +130,10 @@ function makeClient(): ApiClient {
     }),
     reloadSettings: async () => runtimeStatus,
     getRuntimeStatus: async () => runtimeStatus,
-    finalAudioUrl: (projectId) => `http://api.test/api/v1/projects/${projectId}/audio/final`,
-    audioStreamUrl: (projectId) => `http://api.test/api/v1/projects/${projectId}/audio/stream`,
+    finalAudioUrl: (projectId, version) =>
+      `http://api.test/api/v1/projects/${projectId}/audio/final${version ? `?v=${version}` : ""}`,
+    audioStreamUrl: (projectId, version) =>
+      `http://api.test/api/v1/projects/${projectId}/audio/stream${version ? `?v=${version}` : ""}`,
   };
 }
 
@@ -178,9 +180,48 @@ describe("workflow UI", () => {
     expect(await screen.findByText("completed / completed / 100%")).toBeInTheDocument();
     expect(screen.getByRole("link", { name: "Download WAV" })).toHaveAttribute(
       "href",
-      "http://api.test/api/v1/projects/project-1/audio/final",
+      "http://api.test/api/v1/projects/project-1/audio/final?v=job-1",
     );
     expect(screen.getByLabelText("Job progress")).toBeInTheDocument();
+  });
+
+  it("uses the completed job id to refresh the audio player after regeneration", async () => {
+    let generationCount = 0;
+    const client = makeClient();
+    client.startJob = async () => {
+      generationCount += 1;
+      return makeJob({
+        id: `job-${generationCount}`,
+        status: "completed",
+        phase: "completed",
+        progress_percent: 100,
+        completed_chunks: 2,
+      });
+    };
+
+    render(
+      <MemoryRouter>
+        <App client={client} />
+      </MemoryRouter>,
+    );
+
+    fireEvent.click(screen.getByRole("button", { name: "Create Project" }));
+    await screen.findByText("Active project: Biology 101");
+
+    fireEvent.click(screen.getByRole("button", { name: "Start Generation" }));
+    const firstAudio = await screen.findByLabelText("Generated podcast audio");
+    expect(firstAudio).toHaveAttribute(
+      "src",
+      "http://api.test/api/v1/projects/project-1/audio/stream?v=job-1",
+    );
+
+    fireEvent.click(screen.getByRole("button", { name: "Start Generation" }));
+    await waitFor(() =>
+      expect(screen.getByLabelText("Generated podcast audio")).toHaveAttribute(
+        "src",
+        "http://api.test/api/v1/projects/project-1/audio/stream?v=job-2",
+      ),
+    );
   });
 
   it("renders job history on the jobs route", async () => {

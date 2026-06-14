@@ -9,12 +9,21 @@ router = APIRouter(prefix="/projects/{project_id}/audio", tags=["audio"])
 @router.get("/final")
 def download_final_audio(project_id: str, request: Request) -> FileResponse:
     path = _latest_final_audio_path(project_id, request)
-    return FileResponse(path, media_type="audio/wav", filename="study-podcast.wav")
+    return _audio_response(path, filename="study-podcast.wav")
 
 
 @router.get("/stream")
 def stream_final_audio(project_id: str, request: Request) -> FileResponse:
-    return FileResponse(_latest_final_audio_path(project_id, request), media_type="audio/wav")
+    return _audio_response(_latest_final_audio_path(project_id, request))
+
+
+def _audio_response(path: Path, filename: str | None = None) -> FileResponse:
+    return FileResponse(
+        path,
+        media_type="audio/wav",
+        filename=filename,
+        headers={"Cache-Control": "no-store"},
+    )
 
 
 def _latest_final_audio_path(project_id: str, request: Request) -> Path:
