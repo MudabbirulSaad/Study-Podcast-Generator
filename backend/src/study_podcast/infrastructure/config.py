@@ -7,6 +7,7 @@ class Settings(BaseSettings):
     model_config = SettingsConfigDict(env_file=".env", extra="ignore")
 
     storage_root: Path = Path("data/storage")
+    database_path: Path = Path("data/app.sqlite3")
     max_script_size_bytes: int = 1_000_000
     max_chunk_chars: int = 600
     max_chunks: int = 1_000

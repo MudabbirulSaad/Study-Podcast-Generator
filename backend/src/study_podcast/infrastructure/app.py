@@ -6,10 +6,12 @@ from study_podcast.adapters.inbound.api import audio, jobs, projects, queue, scr
 from study_podcast.domain.errors import ActiveJobExistsError, DomainError
 from study_podcast.infrastructure.config import Settings
 from study_podcast.infrastructure.container import Container
+from study_podcast.infrastructure.startup_recovery import mark_unfinished_jobs_interrupted
 
 
 def create_app(settings_override: Settings | None = None) -> FastAPI:
     container = Container.create(settings_override)
+    mark_unfinished_jobs_interrupted(container.jobs, container.clock)
     app = FastAPI(title="Study Podcast Generator API")
     app.state.container = container
     app.add_middleware(

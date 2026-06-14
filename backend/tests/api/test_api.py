@@ -4,8 +4,10 @@ from study_podcast.infrastructure.app import create_app
 from study_podcast.infrastructure.config import Settings
 
 
-def test_project_script_job_and_queue_api_flow() -> None:
-    client = TestClient(create_app(Settings(max_chunk_chars=20)))
+def test_project_script_job_and_queue_api_flow(tmp_path) -> None:
+    client = TestClient(
+        create_app(Settings(max_chunk_chars=20, database_path=tmp_path / "app.sqlite3"))
+    )
 
     project_response = client.post("/api/v1/projects", json={"title": "Biology"})
     assert project_response.status_code == 201
@@ -41,8 +43,8 @@ def test_project_script_job_and_queue_api_flow() -> None:
     assert queue["queue_positions"] == {job["id"]: 1}
 
 
-def test_cancel_job_api() -> None:
-    client = TestClient(create_app())
+def test_cancel_job_api(tmp_path) -> None:
+    client = TestClient(create_app(Settings(database_path=tmp_path / "app.sqlite3")))
     project_id = client.post("/api/v1/projects", json={"title": "Chemistry"}).json()["id"]
     client.put(
         f"/api/v1/projects/{project_id}/script",
@@ -57,7 +59,7 @@ def test_cancel_job_api() -> None:
 
 
 def test_missing_resource_uses_error_envelope() -> None:
-    client = TestClient(create_app())
+    client = TestClient(create_app(Settings(database_path=":memory:")))
 
     response = client.get("/api/v1/jobs/missing")
 
