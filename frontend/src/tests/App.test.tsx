@@ -67,6 +67,16 @@ const client: ApiClient = {
   cancelJob: async () => {
     throw new Error("not used");
   },
+  rerunJob: async () => {
+    throw new Error("not used");
+  },
+  getJobScript: async () => {
+    throw new Error("not used");
+  },
+  listVoices: async () => [],
+  uploadVoice: async () => {
+    throw new Error("not used");
+  },
   getQueue: async () => queue,
   getTtsSettings: async () => settings,
   getSettings: async () => runtimeSettings,
@@ -77,6 +87,10 @@ const client: ApiClient = {
     `/api/v1/projects/${projectId}/audio/final${version ? `?v=${version}` : ""}`,
   audioStreamUrl: (projectId, version) =>
     `/api/v1/projects/${projectId}/audio/stream${version ? `?v=${version}` : ""}`,
+  jobFinalAudioUrl: (jobId, version) =>
+    `/api/v1/jobs/${jobId}/audio/final${version ? `?v=${version}` : ""}`,
+  jobAudioStreamUrl: (jobId, version) =>
+    `/api/v1/jobs/${jobId}/audio/stream${version ? `?v=${version}` : ""}`,
 };
 
 describe("App", () => {

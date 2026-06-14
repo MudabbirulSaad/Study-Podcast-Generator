@@ -1,9 +1,18 @@
-import { AudioLines, Download, FolderOpen, Play, Settings, Timer, XCircle } from "lucide-react";
+import { AudioLines, FolderOpen, Settings, Timer, XCircle } from "lucide-react";
 import { useEffect, useMemo, useState } from "react";
 import { NavLink, Route, Routes } from "react-router-dom";
 
 import { apiClient, type ApiClient } from "../api/client";
-import type { Job, Project, QueueSummary, RuntimeSettings, RuntimeStatus, ScriptResponse } from "../types/api";
+import { AudioPlayer } from "../components/AudioPlayer";
+import type {
+  Job,
+  Project,
+  QueueSummary,
+  RuntimeSettings,
+  RuntimeStatus,
+  ScriptResponse,
+  VoiceProfile,
+} from "../types/api";
 
 type AppProps = {
   client?: ApiClient;
@@ -16,11 +25,22 @@ function ProjectsRoute({ client }: { client: ApiClient }) {
   const [script, setScript] = useState<ScriptResponse | null>(null);
   const [job, setJob] = useState<Job | null>(null);
   const [queue, setQueue] = useState<QueueSummary | null>(null);
+  const [voices, setVoices] = useState<VoiceProfile[]>([]);
+  const [voiceId, setVoiceId] = useState("default");
+  const [voiceName, setVoiceName] = useState("My voice");
+  const [ttsParams, setTtsParams] = useState({
+    exaggeration: 0.5,
+    cfg_weight: 0.5,
+    temperature: 0.8,
+    top_p: 1,
+    min_p: 0.05,
+    repetition_penalty: 1.2,
+  });
   const [scriptText, setScriptText] = useState("[S1] Cells divide. [Narrator] Tissues grow.");
   const [message, setMessage] = useState("");
   const audioVersion = job?.status === "completed" ? job.id : undefined;
-  const audioUrl = project ? client.audioStreamUrl(project.id, audioVersion) : "";
-  const downloadUrl = project ? client.finalAudioUrl(project.id, audioVersion) : "";
+  const audioUrl = job?.status === "completed" ? client.jobAudioStreamUrl(job.id, audioVersion) : "";
+  const downloadUrl = job?.status === "completed" ? client.jobFinalAudioUrl(job.id, audioVersion) : "";
 
   async function loadProjects() {
     const loaded = await client.listProjects();
@@ -32,6 +52,7 @@ function ProjectsRoute({ client }: { client: ApiClient }) {
 
   useEffect(() => {
     void loadProjects();
+    void client.listVoices().then(setVoices);
   }, []);
 
   useEffect(() => {
@@ -101,9 +122,21 @@ function ProjectsRoute({ client }: { client: ApiClient }) {
       setMessage("Create a project first.");
       return;
     }
-    const started = await client.startJob(project.id);
+    const started = await client.startJob(project.id, {
+      voice_profile_id: voiceId,
+      tts_params: ttsParams,
+    });
     setJob(started);
     setQueue(await client.getQueue());
+  }
+
+  async function uploadVoice(file: File | null) {
+    if (!file) {
+      return;
+    }
+    const uploaded = await client.uploadVoice(voiceName, file);
+    setVoices([...voices, uploaded]);
+    setVoiceId(uploaded.id);
   }
 
   async function cancelJob() {
@@ -177,6 +210,65 @@ function ProjectsRoute({ client }: { client: ApiClient }) {
         </section>
       )}
 
+      <section className="data-section settings-grid" aria-label="Voice and generation settings">
+        <h2>Voice And Parameters</h2>
+        <label>
+          Voice
+          <select
+            aria-label="Voice"
+            value={voiceId}
+            onChange={(event) => setVoiceId(event.target.value)}
+          >
+            {voices.map((voice) => (
+              <option key={voice.id} value={voice.id}>
+                {voice.display_name}
+              </option>
+            ))}
+          </select>
+        </label>
+        <label>
+          Voice name
+          <input
+            aria-label="Voice name"
+            value={voiceName}
+            onChange={(event) => setVoiceName(event.target.value)}
+          />
+        </label>
+        <label className="file-button">
+          Upload Voice
+          <input
+            aria-label="Upload voice"
+            accept=".wav,.mp3,.flac,.m4a,audio/*"
+            type="file"
+            onChange={(event) => void uploadVoice(event.target.files?.[0] ?? null)}
+          />
+        </label>
+        {[
+          ["exaggeration", "Exaggeration"],
+          ["cfg_weight", "CFG weight"],
+          ["temperature", "Temperature"],
+          ["top_p", "Top P"],
+          ["min_p", "Min P"],
+          ["repetition_penalty", "Repetition penalty"],
+        ].map(([key, label]) => (
+          <label key={key}>
+            {label}
+            <input
+              aria-label={label}
+              step={0.05}
+              type="number"
+              value={ttsParams[key as keyof typeof ttsParams]}
+              onChange={(event) =>
+                setTtsParams((existing) => ({
+                  ...existing,
+                  [key]: Number(event.target.value),
+                }))
+              }
+            />
+          </label>
+        ))}
+      </section>
+
       {job && (
         <section className="data-section" aria-label="Job progress">
           <div className="job-head">
@@ -200,17 +292,7 @@ function ProjectsRoute({ client }: { client: ApiClient }) {
           {job.message && <p className="message">{job.message}</p>}
           {["completed"].includes(job.status) && (
             <div className="audio-actions">
-              <audio aria-label="Generated podcast audio" controls src={audioUrl}>
-                <track kind="captions" />
-              </audio>
-              <a className="action-link" href={downloadUrl} download>
-                <Download aria-hidden="true" />
-                Download WAV
-              </a>
-              <a className="action-link" href={audioUrl}>
-                <Play aria-hidden="true" />
-                Open Stream
-              </a>
+              <AudioPlayer src={audioUrl} downloadUrl={downloadUrl} />
             </div>
           )}
         </section>
@@ -235,9 +317,14 @@ function JobsRoute({ client }: { client: ApiClient }) {
   const [jobs, setJobs] = useState<Job[]>([]);
   const [queue, setQueue] = useState<QueueSummary | null>(null);
   const [message, setMessage] = useState("");
+  const [statusFilter, setStatusFilter] = useState("");
+  const [scriptPreview, setScriptPreview] = useState<Record<string, string>>({});
 
   async function refreshJobs() {
-    const [jobsResult, queueResult] = await Promise.allSettled([client.listJobs(), client.getQueue()]);
+    const [jobsResult, queueResult] = await Promise.allSettled([
+      client.listJobs({ status: statusFilter || undefined }),
+      client.getQueue(),
+    ]);
     if (jobsResult.status === "fulfilled") {
       setJobs(jobsResult.value);
     } else {
@@ -252,12 +339,24 @@ function JobsRoute({ client }: { client: ApiClient }) {
 
   useEffect(() => {
     void refreshJobs();
-  }, []);
+  }, [statusFilter]);
 
   async function cancelJob(jobId: string) {
     setMessage("");
     await client.cancelJob(jobId);
     await refreshJobs();
+  }
+
+  async function rerunJob(jobId: string) {
+    setMessage("");
+    await client.rerunJob(jobId);
+    await refreshJobs();
+  }
+
+  async function inspectScript(jobId: string) {
+    setMessage("");
+    const script = await client.getJobScript(jobId);
+    setScriptPreview((existing) => ({ ...existing, [jobId]: script.text }));
   }
 
   return (
@@ -279,6 +378,23 @@ function JobsRoute({ client }: { client: ApiClient }) {
       )}
 
       {message && <p className="message">{message}</p>}
+
+      <div className="tool-row" aria-label="Job filters">
+        {[
+          ["", "All"],
+          ["queued,running,cancel_requested", "Active"],
+          ["completed", "Completed"],
+          ["failed,cancelled,interrupted", "Needs attention"],
+        ].map(([value, label]) => (
+          <button
+            className={statusFilter === value ? "selected-project" : ""}
+            key={value}
+            onClick={() => setStatusFilter(value)}
+          >
+            {label}
+          </button>
+        ))}
+      </div>
 
       <section className="job-list" aria-label="Job history">
         {jobs.length === 0 && <p>No generation jobs yet.</p>}
@@ -316,6 +432,22 @@ function JobsRoute({ client }: { client: ApiClient }) {
               {job.message && <p className="message">{job.message}</p>}
               {job.failure_reason && job.failure_reason !== job.message && (
                 <p className="message">{job.failure_reason}</p>
+              )}
+              {job.snapshot && (
+                <p>
+                  Voice {job.snapshot.voice_profile_id} / {Object.keys(job.snapshot.tts_params).length} TTS params
+                </p>
+              )}
+              <div className="tool-row">
+                <button onClick={() => void inspectScript(job.id)}>View script</button>
+                {job.status === "completed" && <button onClick={() => void rerunJob(job.id)}>Rerun</button>}
+              </div>
+              {scriptPreview[job.id] && <pre className="script-preview">{scriptPreview[job.id]}</pre>}
+              {job.status === "completed" && (
+                <AudioPlayer
+                  src={client.jobAudioStreamUrl(job.id, job.id)}
+                  downloadUrl={client.jobFinalAudioUrl(job.id, job.id)}
+                />
               )}
             </article>
           );

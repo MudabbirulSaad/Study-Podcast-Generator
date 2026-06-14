@@ -42,6 +42,33 @@ export type Job = {
   started_at: string | null;
   updated_at: string;
   completed_at: string | null;
+  snapshot?: JobSnapshot | null;
+};
+
+export type JobSnapshot = {
+  job_id: string;
+  project_id: string;
+  script_text: string;
+  script_source: "pasted" | "uploaded";
+  speakers: string[];
+  chunks: Chunk[];
+  voice_profile_id: string;
+  tts_params: Record<string, number>;
+  created_at: string;
+};
+
+export type VoiceProfile = {
+  id: string;
+  display_name: string;
+  source: "default" | "uploaded";
+  sample_path: string | null;
+  created_at: string;
+  updated_at: string;
+};
+
+export type StartJobInput = {
+  voice_profile_id: string;
+  tts_params: Record<string, number>;
 };
 
 export type QueueSummary = {

@@ -4,7 +4,16 @@ import { describe, expect, it } from "vitest";
 
 import type { ApiClient } from "../api/client";
 import { App } from "../routes/App";
-import type { Job, Project, QueueSummary, RuntimeSettings, RuntimeStatus, ScriptResponse, TtsSettings } from "../types/api";
+import type {
+  Job,
+  Project,
+  QueueSummary,
+  RuntimeSettings,
+  RuntimeStatus,
+  ScriptResponse,
+  TtsSettings,
+  VoiceProfile,
+} from "../types/api";
 
 const now = "2026-06-14T00:00:00Z";
 
@@ -60,6 +69,16 @@ function makeClient(): ApiClient {
     active_engine: "chatterbox",
     available_engines: ["chatterbox"],
   };
+  const voices: VoiceProfile[] = [
+    {
+      id: "default",
+      display_name: "Default Chatterbox voice",
+      source: "default",
+      sample_path: null,
+      created_at: now,
+      updated_at: now,
+    },
+  ];
   const runtimeSettings: RuntimeSettings = {
     values: {
       active_tts_engine: "chatterbox",
@@ -102,7 +121,20 @@ function makeClient(): ApiClient {
     }),
     getScript: async () => script,
     saveScript: async () => script,
-    startJob: async () => makeJob(),
+    startJob: async (_projectId, input) =>
+      makeJob({
+        snapshot: {
+          job_id: "job-1",
+          project_id: "project-1",
+          script_text: script.text,
+          script_source: "pasted",
+          speakers: script.speakers,
+          chunks: script.chunks,
+          voice_profile_id: input?.voice_profile_id ?? "default",
+          tts_params: input?.tts_params ?? {},
+          created_at: now,
+        },
+      }),
     listJobs: async () => [
       makeJob({
         id: "job-1",
@@ -125,6 +157,17 @@ function makeClient(): ApiClient {
     ],
     getJob: async () => makeJob({ status: "running", phase: "synthesizing", progress_percent: 45 }),
     cancelJob: async () => makeJob({ status: "cancelled", message: "Cancelled" }),
+    rerunJob: async () => makeJob({ id: "job-rerun" }),
+    getJobScript: async () => script,
+    listVoices: async () => voices,
+    uploadVoice: async () => ({
+      id: "voice-1",
+      display_name: "My seminar voice",
+      source: "uploaded",
+      sample_path: "storage/voices/voice-1/sample.wav",
+      created_at: now,
+      updated_at: now,
+    }),
     uploadScript: async () => script,
     getQueue: async () => queue,
     getTtsSettings: async () => settings,
@@ -141,6 +184,10 @@ function makeClient(): ApiClient {
       `http://api.test/api/v1/projects/${projectId}/audio/final${version ? `?v=${version}` : ""}`,
     audioStreamUrl: (projectId, version) =>
       `http://api.test/api/v1/projects/${projectId}/audio/stream${version ? `?v=${version}` : ""}`,
+    jobFinalAudioUrl: (jobId, version) =>
+      `http://api.test/api/v1/jobs/${jobId}/audio/final${version ? `?v=${version}` : ""}`,
+    jobAudioStreamUrl: (jobId, version) =>
+      `http://api.test/api/v1/jobs/${jobId}/audio/stream${version ? `?v=${version}` : ""}`,
   };
 }
 
@@ -182,6 +229,21 @@ describe("workflow UI", () => {
     expect(screen.getByText("Cancelled")).toBeInTheDocument();
   });
 
+  it("selects and uploads reusable voices before generation", async () => {
+    const client = makeClient();
+    render(
+      <MemoryRouter>
+        <App client={client} />
+      </MemoryRouter>,
+    );
+
+    expect(await screen.findByLabelText("Voice")).toHaveValue("default");
+    const file = new File(["RIFFvoice"], "voice.wav", { type: "audio/wav" });
+    fireEvent.change(screen.getByLabelText("Upload voice"), { target: { files: [file] } });
+    expect(await screen.findByRole("option", { name: "My seminar voice" })).toBeInTheDocument();
+    expect(screen.getByLabelText("Voice")).toHaveValue("voice-1");
+  });
+
   it("shows playback and download controls for a completed job", async () => {
     const client = makeClient();
     client.startJob = async () =>
@@ -200,9 +262,10 @@ describe("workflow UI", () => {
     expect(await screen.findByText("completed / completed / 100%")).toBeInTheDocument();
     expect(screen.getByRole("link", { name: "Download WAV" })).toHaveAttribute(
       "href",
-      "http://api.test/api/v1/projects/project-1/audio/final?v=job-1",
+      "http://api.test/api/v1/jobs/job-1/audio/final?v=job-1",
     );
-    expect(screen.getByLabelText("Job progress")).toBeInTheDocument();
+    expect(screen.getByLabelText("Custom audio player")).toBeInTheDocument();
+    expect(screen.queryByRole("button", { name: "Open Stream" })).not.toBeInTheDocument();
   });
 
   it("uses the completed job id to refresh the audio player after regeneration", async () => {
@@ -229,17 +292,17 @@ describe("workflow UI", () => {
     await screen.findByText("Active project: Biology 101");
 
     fireEvent.click(screen.getByRole("button", { name: "Start Generation" }));
-    const firstAudio = await screen.findByLabelText("Generated podcast audio");
+    const firstAudio = await screen.findByLabelText("Generated podcast audio source");
     expect(firstAudio).toHaveAttribute(
       "src",
-      "http://api.test/api/v1/projects/project-1/audio/stream?v=job-1",
+      "http://api.test/api/v1/jobs/job-1/audio/stream?v=job-1",
     );
 
     fireEvent.click(screen.getByRole("button", { name: "Start Generation" }));
     await waitFor(() =>
-      expect(screen.getByLabelText("Generated podcast audio")).toHaveAttribute(
+      expect(screen.getByLabelText("Generated podcast audio source")).toHaveAttribute(
         "src",
-        "http://api.test/api/v1/projects/project-1/audio/stream?v=job-2",
+        "http://api.test/api/v1/jobs/job-2/audio/stream?v=job-2",
       ),
     );
   });
@@ -257,6 +320,22 @@ describe("workflow UI", () => {
     expect(screen.getByText("job-2")).toBeInTheDocument();
     expect(screen.getByText("failed / synthesizing / 45%")).toBeInTheDocument();
     expect(screen.getAllByText("script not found")).toHaveLength(1);
+  });
+
+  it("filters jobs, inspects scripts, and reruns completed jobs", async () => {
+    const client = makeClient();
+    render(
+      <MemoryRouter initialEntries={["/jobs"]}>
+        <App client={client} />
+      </MemoryRouter>,
+    );
+
+    fireEvent.click(await screen.findByRole("button", { name: "Completed" }));
+    expect(await screen.findByText("job-1")).toBeInTheDocument();
+    fireEvent.click(screen.getAllByRole("button", { name: "View script" })[0]);
+    expect(await screen.findByText("[S1] Cells divide.")).toBeInTheDocument();
+    fireEvent.click(screen.getByRole("button", { name: "Rerun" }));
+    await waitFor(() => expect(screen.getByText("job-1")).toBeInTheDocument());
   });
 
   it("keeps job history visible when queue summary fails", async () => {

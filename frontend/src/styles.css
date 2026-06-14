@@ -90,6 +90,14 @@ nav a:hover {
   gap: 10px;
 }
 
+.project-list,
+.player-controls {
+  align-items: center;
+  display: flex;
+  flex-wrap: wrap;
+  gap: 10px;
+}
+
 button,
 input,
 select,
@@ -113,6 +121,11 @@ button:hover,
 .action-link:hover,
 .file-button:hover {
   background: #c75f43;
+}
+
+.selected-project {
+  background: #c75f43;
+  border-color: #8a4b39;
 }
 
 input,
@@ -272,8 +285,37 @@ textarea {
   max-width: 620px;
 }
 
-.audio-actions audio {
+.custom-player {
+  background: #fffdf7;
+  border: 1px solid #cbc5b7;
+  display: grid;
+  gap: 10px;
+  padding: 12px;
+  width: min(100%, 620px);
+}
+
+.custom-player input[type="range"] {
   width: 100%;
+}
+
+.time-readout {
+  color: #516064;
+  font-variant-numeric: tabular-nums;
+}
+
+.volume-control {
+  align-items: center;
+  display: flex;
+  gap: 8px;
+}
+
+.script-preview {
+  background: #f7f2e7;
+  border: 1px solid #cbc5b7;
+  max-height: 180px;
+  overflow: auto;
+  padding: 10px;
+  white-space: pre-wrap;
 }
 
 .eyebrow {

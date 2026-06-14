@@ -16,6 +16,26 @@ describe("apiClient", () => {
     expect(apiClient.audioStreamUrl("project-1", "job 1")).toBe(
       "/api/v1/projects/project-1/audio/stream?v=job%201",
     );
+    expect(apiClient.jobFinalAudioUrl("job-1", "job 1")).toBe(
+      "/api/v1/jobs/job-1/audio/final?v=job%201",
+    );
+    expect(apiClient.jobAudioStreamUrl("job-1", "job 1")).toBe(
+      "/api/v1/jobs/job-1/audio/stream?v=job%201",
+    );
+  });
+
+  it("sends job list filters as query parameters", async () => {
+    const fetchMock = vi.fn(
+      async () => new Response("[]", { status: 200, headers: { "Content-Type": "application/json" } }),
+    );
+    vi.stubGlobal("fetch", fetchMock);
+
+    await apiClient.listJobs({ status: "completed", projectId: "project-1" });
+
+    expect(fetchMock).toHaveBeenCalledWith(
+      "/api/v1/jobs?status=completed&project_id=project-1",
+      expect.any(Object),
+    );
   });
 
   it("throws a stable envelope for non-json error responses", async () => {
