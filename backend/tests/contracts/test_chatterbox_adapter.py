@@ -25,31 +25,43 @@ def test_chatterbox_adapter_uses_configured_device() -> None:
 def test_chatterbox_adapter_saves_generated_tensor(monkeypatch, tmp_path: Path) -> None:
     saved: dict[str, object] = {}
 
+    class FakeAudio:
+        def detach(self):
+            return self
+
+        def cpu(self):
+            return self
+
+        def squeeze(self):
+            return self
+
+        def numpy(self):
+            return [0.0, 0.0]
+
     class FakeModel:
         sr = 24000
 
-        def generate(self, text: str) -> str:
-            return f"audio:{text}"
+        def generate(self, text: str) -> FakeAudio:
+            saved["text"] = text
+            return FakeAudio()
 
-    class FakeTorchaudio:
+    class FakeSoundFile:
         @staticmethod
-        def save(
+        def write(
             path: str,
-            audio: str,
+            audio,
             sample_rate: int,
-            encoding: str,
-            bits_per_sample: int,
+            subtype: str,
         ) -> None:
             saved["path"] = path
             saved["audio"] = audio
             saved["sample_rate"] = sample_rate
-            saved["encoding"] = encoding
-            saved["bits_per_sample"] = bits_per_sample
+            saved["subtype"] = subtype
             Path(path).write_bytes(b"RIFFfake")
 
     adapter = ChatterboxTtsEngine(device="cpu")
     adapter._model = FakeModel()
-    monkeypatch.setitem(__import__("sys").modules, "torchaudio", FakeTorchaudio)
+    monkeypatch.setitem(__import__("sys").modules, "soundfile", FakeSoundFile)
 
     audio = adapter.synthesize(
         chunk=TextChunk(index=0, speaker="Narrator", text="Short local test."),
@@ -58,11 +70,11 @@ def test_chatterbox_adapter_saves_generated_tensor(monkeypatch, tmp_path: Path) 
 
     assert Path(audio.path).exists()
     assert saved == {
+        "text": "Short local test.",
         "path": str(tmp_path / "chunk.wav"),
-        "audio": "audio:Short local test.",
+        "audio": [0.0, 0.0],
         "sample_rate": 24000,
-        "encoding": "PCM_S",
-        "bits_per_sample": 16,
+        "subtype": "PCM_16",
     }
 
 

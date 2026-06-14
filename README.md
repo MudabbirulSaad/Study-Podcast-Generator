@@ -98,6 +98,13 @@ cd backend
 uv sync --extra tts-chatterbox
 ```
 
+The Chatterbox extra pins a matched CUDA 12.6 PyTorch family from the official PyTorch wheel index:
+- `torch==2.11.0`
+- `torchaudio==2.11.0`
+- `torchvision==0.26.0`
+
+This avoids Windows DLL load errors such as `Could not load ... libtorchaudio.pyd`, which happen when `torch` and `torchaudio` come from different binary generations. Chatterbox currently publishes older Torch pins, so the project uses a uv dependency override for the locally verified CUDA stack.
+
 Run the local app:
 
 ```bash
@@ -116,7 +123,7 @@ $env:RUN_CHATTERBOX_TESTS="1"
 uv run pytest tests/contracts/test_chatterbox_adapter.py
 ```
 
-Chatterbox may require a compatible PyTorch/CUDA setup for your GPU. The backend still starts without loading the model; the model is lazy-loaded when the engine is first used.
+Chatterbox may require a compatible PyTorch/CUDA setup for your GPU. The backend still starts without loading the model; the model is lazy-loaded when the engine is first used. Generated WAV files are written with `soundfile` so local WAV output does not require TorchCodec or FFmpeg.
 
 ## Runtime Settings
 The Settings page edits a safe allowlist of runtime values, including the active TTS engine, Chatterbox device, chunk limits, concurrency limits, storage root, frontend origin, and static frontend serving.

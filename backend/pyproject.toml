@@ -13,7 +13,11 @@ dependencies = [
 [project.optional-dependencies]
 tts-chatterbox = [
   "chatterbox-tts>=0.1.0",
+  "soundfile>=0.14.0",
   "setuptools<81",
+  "torch==2.11.0",
+  "torchaudio==2.11.0",
+  "torchvision==0.26.0",
 ]
 
 [dependency-groups]
@@ -38,3 +42,22 @@ select = ["E", "F", "I", "UP", "B", "SIM"]
 
 [tool.ruff.format]
 quote-style = "double"
+
+[tool.uv]
+# Chatterbox 0.1.7 pins older Torch packages. These overrides keep the local
+# Windows CUDA stack on a matched PyTorch family that has been verified with
+# Chatterbox and torchaudio imports.
+override-dependencies = [
+  "torch==2.11.0",
+  "torchaudio==2.11.0",
+]
+
+[[tool.uv.index]]
+name = "pytorch-cu126"
+url = "https://download.pytorch.org/whl/cu126"
+explicit = true
+
+[tool.uv.sources]
+torch = { index = "pytorch-cu126" }
+torchaudio = { index = "pytorch-cu126" }
+torchvision = { index = "pytorch-cu126" }

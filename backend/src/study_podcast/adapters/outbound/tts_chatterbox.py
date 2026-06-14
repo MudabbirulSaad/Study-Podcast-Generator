@@ -23,18 +23,18 @@ class ChatterboxTtsEngine:
 
     def _save_wav(self, *, audio, output_path: Path, sample_rate: int) -> None:
         try:
-            import torchaudio
+            import soundfile
         except ImportError as exc:
             raise RuntimeError(
-                "torchaudio is required for Chatterbox WAV output. "
+                "soundfile is required for Chatterbox WAV output. "
                 "Install with `uv sync --extra tts-chatterbox`."
             ) from exc
-        torchaudio.save(
+        audio_data = audio.detach().cpu().squeeze().numpy()
+        soundfile.write(
             str(output_path),
-            audio,
+            audio_data,
             sample_rate,
-            encoding="PCM_S",
-            bits_per_sample=16,
+            subtype="PCM_16",
         )
 
     def _load_model(self):
