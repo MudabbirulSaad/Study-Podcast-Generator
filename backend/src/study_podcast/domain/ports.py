@@ -1,8 +1,7 @@
 from __future__ import annotations
 
 from collections.abc import Iterable
-from pathlib import Path
-from typing import Protocol
+from typing import Any, Protocol
 
 from study_podcast.domain.entities import (
     ActivePodcastScript,
@@ -37,16 +36,16 @@ class JobRepository(Protocol):
 class TtsEngine(Protocol):
     engine_key: str
 
-    def synthesize(self, *, chunk: TextChunk, output_path: Path) -> AudioChunk: ...
+    def synthesize(self, *, chunk: TextChunk, output_path: Any) -> AudioChunk: ...
 
 
 class AudioMerger(Protocol):
-    def merge(self, *, chunks: Iterable[AudioChunk], output_path: Path) -> FinalAudio: ...
+    def merge(self, *, chunks: Iterable[AudioChunk], output_path: Any) -> FinalAudio: ...
 
 
 class FileStorage(Protocol):
-    def path_for_chunk(self, project_id: str, job_id: str, chunk_index: int) -> Path: ...
-    def path_for_final_audio(self, project_id: str, job_id: str) -> Path: ...
+    def path_for_chunk(self, project_id: str, job_id: str, chunk_index: int) -> Any: ...
+    def path_for_final_audio(self, project_id: str, job_id: str) -> Any: ...
 
 
 class JobQueue(Protocol):
