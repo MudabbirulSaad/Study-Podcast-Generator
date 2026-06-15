@@ -5,9 +5,10 @@ from study_podcast.adapters.inbound.api.schemas import (
     ScriptResponse,
     StartJobRequest,
 )
-from study_podcast.domain.entities import JobInputSnapshot
-from study_podcast.domain.errors import DomainError
-from study_podcast.domain.services import split_script_into_chunks
+from study_podcast.application.generation_job_commands import (
+    RerunGenerationJob,
+    SubmitGenerationJob,
+)
 
 router = APIRouter(tags=["jobs"])
 
@@ -24,31 +25,22 @@ def submit_job(
 ) -> JobResponse:
     container = request.app.state.container
     payload = payload or StartJobRequest()
-    script = container.scripts.get_active(project_id)
-    if script is None:
-        raise DomainError("script not found")
-    chunks = split_script_into_chunks(
-        script.text,
+    result = SubmitGenerationJob(
+        scripts=container.scripts,
+        snapshots=container.snapshots,
+        jobs=container.jobs,
+        queue=container.queue,
+        clock=container.clock,
         max_chunk_chars=container.settings.max_chunk_chars,
         max_chunks=container.settings.max_chunks,
-    )
-    job = container.queue.submit_generation_job(project_id)
-    snapshot = JobInputSnapshot(
-        job_id=job.id,
-        project_id=project_id,
-        script_text=script.text,
-        script_source=script.source,
-        speakers=script.speakers,
-        chunks=tuple(chunks),
+        worker_pool=container.worker_pool,
+        auto_start_worker_pool=container.settings.auto_start_worker_pool,
+    ).execute(
+        project_id,
         voice_profile_id=payload.voice_profile_id,
         tts_params=payload.tts_params,
-        created_at=container.clock.now(),
     )
-    container.snapshots.save(snapshot)
-    if container.settings.auto_start_worker_pool:
-        container.worker_pool.drain_queued()
-        job = container.jobs.get(job.id) or job
-    return JobResponse.from_domain(job, snapshot)
+    return JobResponse.from_domain(result.job, result.snapshot)
 
 
 @router.get("/jobs", response_model=list[JobResponse])
@@ -111,26 +103,17 @@ def cancel_job(job_id: str, request: Request) -> JobResponse:
 )
 def rerun_job(job_id: str, request: Request) -> JobResponse:
     container = request.app.state.container
-    existing_snapshot = container.snapshots.get(job_id)
-    if existing_snapshot is None:
-        raise KeyError("job snapshot not found")
-    job = container.queue.submit_generation_job(existing_snapshot.project_id)
-    snapshot = JobInputSnapshot(
-        job_id=job.id,
-        project_id=existing_snapshot.project_id,
-        script_text=existing_snapshot.script_text,
-        script_source=existing_snapshot.script_source,
-        speakers=existing_snapshot.speakers,
-        chunks=existing_snapshot.chunks,
-        voice_profile_id=existing_snapshot.voice_profile_id,
-        tts_params=existing_snapshot.tts_params,
-        created_at=container.clock.now(),
+    result = RerunGenerationJob(
+        snapshots=container.snapshots,
+        jobs=container.jobs,
+        queue=container.queue,
+        clock=container.clock,
+        worker_pool=container.worker_pool,
+        auto_start_worker_pool=container.settings.auto_start_worker_pool,
+    ).execute(
+        job_id,
     )
-    container.snapshots.save(snapshot)
-    if container.settings.auto_start_worker_pool:
-        container.worker_pool.drain_queued()
-        job = container.jobs.get(job.id) or job
-    return JobResponse.from_domain(job, snapshot)
+    return JobResponse.from_domain(result.job, result.snapshot)
 
 
 @router.get("/jobs/{job_id}/script", response_model=ScriptResponse)
