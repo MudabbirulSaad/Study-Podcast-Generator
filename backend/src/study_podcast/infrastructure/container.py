@@ -21,6 +21,15 @@ from study_podcast.application.progress import RepositoryProgressReporter
 from study_podcast.domain.errors import DomainError
 from study_podcast.domain.value_objects import JobStatus
 from study_podcast.infrastructure.config import Settings
+from study_podcast.infrastructure.route_interfaces import (
+    AudioRoutes,
+    GenerationJobRoutes,
+    ProjectWorkspaceRoutes,
+    QueueRoutes,
+    RuntimeSettingsRoutes,
+    ScriptRoutes,
+    VoiceRoutes,
+)
 from study_podcast.infrastructure.runtime_settings import (
     DotEnvFileWriter,
     apply_startup_overrides,
@@ -50,6 +59,34 @@ class Container:
     reload_required: bool = False
     runtime_status: str = "idle"
     last_reload_error: str | None = None
+
+    @property
+    def project_workspace(self) -> ProjectWorkspaceRoutes:
+        return ProjectWorkspaceRoutes(self)
+
+    @property
+    def script_endpoint(self) -> ScriptRoutes:
+        return ScriptRoutes(self)
+
+    @property
+    def generation_jobs(self) -> GenerationJobRoutes:
+        return GenerationJobRoutes(self)
+
+    @property
+    def generation_queue(self) -> QueueRoutes:
+        return QueueRoutes(self)
+
+    @property
+    def audio_endpoint(self) -> AudioRoutes:
+        return AudioRoutes(self)
+
+    @property
+    def runtime_settings_endpoint(self) -> RuntimeSettingsRoutes:
+        return RuntimeSettingsRoutes(self)
+
+    @property
+    def voice_endpoint(self) -> VoiceRoutes:
+        return VoiceRoutes(self)
 
     @classmethod
     def create(cls, settings: Settings | None = None) -> "Container":

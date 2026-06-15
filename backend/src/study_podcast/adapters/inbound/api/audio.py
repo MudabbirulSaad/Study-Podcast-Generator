@@ -3,8 +3,6 @@ from pathlib import Path
 from fastapi import APIRouter, Request
 from fastapi.responses import FileResponse
 
-from study_podcast.application.read_models import AudioReadModel
-
 router = APIRouter(tags=["audio"])
 
 
@@ -42,10 +40,8 @@ def _audio_response(path: Path, filename: str | None = None) -> FileResponse:
 
 
 def _latest_final_audio_path(project_id: str, request: Request) -> Path:
-    container = request.app.state.container
-    return AudioReadModel(container.jobs, container.storage).latest_final_audio_path(project_id)
+    return request.app.state.container.audio_endpoint.latest_final_audio_path(project_id)
 
 
 def _job_final_audio_path(job_id: str, request: Request) -> Path:
-    container = request.app.state.container
-    return AudioReadModel(container.jobs, container.storage).job_final_audio_path(job_id)
+    return request.app.state.container.audio_endpoint.job_final_audio_path(job_id)

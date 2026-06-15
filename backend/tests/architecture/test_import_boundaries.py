@@ -41,3 +41,28 @@ def test_application_does_not_import_fastapi_or_concrete_adapters() -> None:
     }
 
     assert offenders == {}
+
+
+def test_inbound_routes_use_route_facing_container_interfaces() -> None:
+    forbidden_snippets = {
+        ".projects",
+        ".scripts",
+        ".snapshots",
+        ".voices",
+        ".jobs",
+        ".queue",
+        ".storage",
+        ".runner",
+        ".worker_pool",
+        ".settings_repo",
+        ".env_writer",
+    }
+
+    offenders = {}
+    for path in python_files("adapters/inbound/api"):
+        text = path.read_text(encoding="utf-8")
+        found = sorted(snippet for snippet in forbidden_snippets if f"container{snippet}" in text)
+        if found:
+            offenders[str(path.relative_to(BACKEND_SRC))] = found
+
+    assert offenders == {}

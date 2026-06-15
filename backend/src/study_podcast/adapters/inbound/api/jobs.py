@@ -5,11 +5,6 @@ from study_podcast.adapters.inbound.api.schemas import (
     ScriptResponse,
     StartJobRequest,
 )
-from study_podcast.application.generation_job_commands import (
-    RerunGenerationJob,
-    SubmitGenerationJob,
-)
-from study_podcast.application.read_models import JobReadModel
 
 router = APIRouter(tags=["jobs"])
 
@@ -24,19 +19,8 @@ def submit_job(
     request: Request,
     payload: StartJobRequest | None = None,
 ) -> JobResponse:
-    container = request.app.state.container
     payload = payload or StartJobRequest()
-    result = SubmitGenerationJob(
-        scripts=container.scripts,
-        snapshots=container.snapshots,
-        jobs=container.jobs,
-        queue=container.queue,
-        clock=container.clock,
-        max_chunk_chars=container.settings.max_chunk_chars,
-        max_chunks=container.settings.max_chunks,
-        worker_pool=container.worker_pool,
-        auto_start_worker_pool=container.settings.auto_start_worker_pool,
-    ).execute(
+    result = request.app.state.container.generation_jobs.submit(
         project_id,
         voice_profile_id=payload.voice_profile_id,
         tts_params=payload.tts_params,
@@ -51,8 +35,7 @@ def list_jobs(
     project_id: str | None = None,
     q: str | None = None,
 ) -> list[JobResponse]:
-    container = request.app.state.container
-    results = JobReadModel(container.jobs, container.snapshots).list(
+    results = request.app.state.container.generation_jobs.list(
         status=status,
         project_id=project_id,
         q=q,
@@ -62,16 +45,14 @@ def list_jobs(
 
 @router.get("/jobs/{job_id}", response_model=JobResponse)
 def get_job(job_id: str, request: Request) -> JobResponse:
-    container = request.app.state.container
-    result = JobReadModel(container.jobs, container.snapshots).get(job_id)
+    result = request.app.state.container.generation_jobs.get(job_id)
     return JobResponse.from_domain(result.job, result.snapshot)
 
 
 @router.post("/jobs/{job_id}/cancel", response_model=JobResponse)
 def cancel_job(job_id: str, request: Request) -> JobResponse:
-    job = request.app.state.container.queue.cancel(job_id)
-    snapshot = request.app.state.container.snapshots.get(job_id)
-    return JobResponse.from_domain(job, snapshot)
+    result = request.app.state.container.generation_jobs.cancel(job_id)
+    return JobResponse.from_domain(result.job, result.snapshot)
 
 
 @router.post(
@@ -80,24 +61,13 @@ def cancel_job(job_id: str, request: Request) -> JobResponse:
     status_code=status.HTTP_202_ACCEPTED,
 )
 def rerun_job(job_id: str, request: Request) -> JobResponse:
-    container = request.app.state.container
-    result = RerunGenerationJob(
-        snapshots=container.snapshots,
-        jobs=container.jobs,
-        queue=container.queue,
-        clock=container.clock,
-        worker_pool=container.worker_pool,
-        auto_start_worker_pool=container.settings.auto_start_worker_pool,
-    ).execute(
-        job_id,
-    )
+    result = request.app.state.container.generation_jobs.rerun(job_id)
     return JobResponse.from_domain(result.job, result.snapshot)
 
 
 @router.get("/jobs/{job_id}/script", response_model=ScriptResponse)
 def get_job_script(job_id: str, request: Request) -> ScriptResponse:
-    container = request.app.state.container
-    snapshot = JobReadModel(container.jobs, container.snapshots).get_script_snapshot(job_id)
+    snapshot = request.app.state.container.generation_jobs.get_script_snapshot(job_id)
     return ScriptResponse(
         project_id=snapshot.project_id,
         text=snapshot.script_text,
