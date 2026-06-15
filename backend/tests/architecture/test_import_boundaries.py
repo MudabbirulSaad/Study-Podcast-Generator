@@ -66,3 +66,10 @@ def test_inbound_routes_use_route_facing_container_interfaces() -> None:
             offenders[str(path.relative_to(BACKEND_SRC))] = found
 
     assert offenders == {}
+
+
+def test_app_uses_explicit_api_error_mapping_module() -> None:
+    app_text = (BACKEND_SRC / "infrastructure" / "app.py").read_text(encoding="utf-8")
+
+    assert "register_error_handlers(app)" in app_text
+    assert "@app.exception_handler" not in app_text

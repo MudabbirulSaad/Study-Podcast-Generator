@@ -1,4 +1,4 @@
-from fastapi import FastAPI, Request
+from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import FileResponse, JSONResponse
 from fastapi.staticfiles import StaticFiles
@@ -12,7 +12,7 @@ from study_podcast.adapters.inbound.api import (
     settings,
     voices,
 )
-from study_podcast.domain.errors import ActiveJobExistsError, DomainError
+from study_podcast.adapters.inbound.api.errors import register_error_handlers
 from study_podcast.infrastructure.config import Settings
 from study_podcast.infrastructure.container import Container
 from study_podcast.infrastructure.startup_recovery import mark_unfinished_jobs_interrupted
@@ -30,32 +30,7 @@ def create_app(settings_override: Settings | None = None) -> FastAPI:
         allow_methods=["*"],
         allow_headers=["*"],
     )
-
-    @app.exception_handler(ActiveJobExistsError)
-    def active_job_exists_handler(_: Request, exc: ActiveJobExistsError) -> JSONResponse:
-        return JSONResponse(
-            status_code=409,
-            content={
-                "code": "active_job_exists",
-                "message": "This project already has an active generation job.",
-                "details": {"job_id": exc.job_id},
-            },
-        )
-
-    @app.exception_handler(DomainError)
-    def domain_error_handler(_: Request, exc: DomainError) -> JSONResponse:
-        return JSONResponse(
-            status_code=400,
-            content={"code": "domain_error", "message": str(exc), "details": None},
-        )
-
-    @app.exception_handler(KeyError)
-    def not_found_handler(_: Request, exc: KeyError) -> JSONResponse:
-        message = str(exc).strip("'")
-        return JSONResponse(
-            status_code=404,
-            content={"code": "not_found", "message": message, "details": None},
-        )
+    register_error_handlers(app)
 
     for router in (
         projects.router,

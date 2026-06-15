@@ -78,6 +78,19 @@ def test_settings_update_rejects_hidden_fake_engine(tmp_path) -> None:
     assert response.json()["code"] == "domain_error"
 
 
+def test_settings_update_rejects_unsupported_setting_with_error_envelope(tmp_path) -> None:
+    client = TestClient(create_app(_settings(tmp_path)))
+
+    response = client.put("/api/v1/settings", json={"values": {"database_path": "nope"}})
+
+    assert response.status_code == 400
+    assert response.json() == {
+        "code": "domain_error",
+        "message": "setting is not editable: database_path",
+        "details": None,
+    }
+
+
 def test_runtime_reload_rejects_when_active_jobs_exist(tmp_path) -> None:
     client = TestClient(create_app(_settings(tmp_path, enable_dev_tts_engine=True)))
     project_id = client.post("/api/v1/projects", json={"title": "Reload block"}).json()["id"]
