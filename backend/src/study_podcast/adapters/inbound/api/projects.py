@@ -3,12 +3,12 @@ from typing import Annotated
 from fastapi import APIRouter, Path, Request, status
 
 from study_podcast.adapters.inbound.api.schemas import (
-    BAD_REQUEST_RESPONSE,
-    NOT_FOUND_RESPONSE,
     CreateProjectRequest,
     JobResponse,
     ProjectDetailResponse,
     ProjectResponse,
+    error_example,
+    error_response,
 )
 
 router = APIRouter(prefix="/projects", tags=["projects"])
@@ -17,13 +17,33 @@ PROJECT_ID_PARAM = Path(
     description="App-generated project UUID string.",
     json_schema_extra={"format": "uuid"},
 )
+CREATE_PROJECT_BAD_REQUEST_RESPONSE = error_response(
+    "Bad Request",
+    {
+        "project_title_required": error_example(
+            summary="Project title is empty",
+            code="domain_error",
+            message="project title is required",
+        )
+    },
+)
+PROJECT_NOT_FOUND_RESPONSE = error_response(
+    "Not Found",
+    {
+        "project_not_found": error_example(
+            summary="Project was not found",
+            code="not_found",
+            message="project not found",
+        )
+    },
+)
 
 
 @router.post(
     "",
     response_model=ProjectResponse,
     status_code=status.HTTP_201_CREATED,
-    responses={400: BAD_REQUEST_RESPONSE},
+    responses={400: CREATE_PROJECT_BAD_REQUEST_RESPONSE},
     operation_id="projects_create",
 )
 def create_project(payload: CreateProjectRequest, request: Request) -> ProjectResponse:
@@ -40,7 +60,7 @@ def list_projects(request: Request, q: str | None = None) -> list[ProjectRespons
 @router.get(
     "/{project_id}",
     response_model=ProjectDetailResponse,
-    responses={404: NOT_FOUND_RESPONSE},
+    responses={404: PROJECT_NOT_FOUND_RESPONSE},
     operation_id="projects_get",
 )
 def get_project(

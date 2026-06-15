@@ -1,15 +1,47 @@
 from fastapi import APIRouter, Request, status
 
 from study_podcast.adapters.inbound.api.schemas import (
-    BAD_REQUEST_RESPONSE,
     RuntimeSettingsResponse,
     RuntimeStatusResponse,
     TtsEngineSettingsResponse,
     UpdateRuntimeSettingsRequest,
     UpdateTtsEngineRequest,
+    error_example,
+    error_response,
 )
 
 router = APIRouter(prefix="/settings", tags=["settings"])
+
+SETTINGS_UPDATE_BAD_REQUEST_RESPONSE = error_response(
+    "Bad Request",
+    {
+        "setting_not_editable": error_example(
+            summary="Setting is not editable",
+            code="domain_error",
+            message="setting is not editable: database_path",
+        ),
+        "engine_not_available": error_example(
+            summary="TTS engine is not available",
+            code="domain_error",
+            message="TTS engine is not available: fake",
+        ),
+    },
+)
+SETTINGS_RELOAD_BAD_REQUEST_RESPONSE = error_response(
+    "Bad Request",
+    {
+        "active_jobs_block_reload": error_example(
+            summary="Runtime reload blocked by active jobs",
+            code="domain_error",
+            message="runtime reload requires all active jobs to finish or be cancelled",
+        ),
+        "engine_reload_failed": error_example(
+            summary="Runtime engine reload failed",
+            code="domain_error",
+            message="runtime reload failed: unknown TTS engine: unknown",
+        ),
+    },
+)
 
 
 @router.get("", response_model=RuntimeSettingsResponse, operation_id="settings_get")
@@ -29,7 +61,7 @@ def get_runtime_settings(request: Request) -> RuntimeSettingsResponse:
 @router.put(
     "",
     response_model=RuntimeSettingsResponse,
-    responses={400: BAD_REQUEST_RESPONSE},
+    responses={400: SETTINGS_UPDATE_BAD_REQUEST_RESPONSE},
     operation_id="settings_update",
 )
 def update_runtime_settings(
@@ -44,7 +76,7 @@ def update_runtime_settings(
     "/reload",
     response_model=RuntimeStatusResponse,
     status_code=status.HTTP_202_ACCEPTED,
-    responses={400: BAD_REQUEST_RESPONSE},
+    responses={400: SETTINGS_RELOAD_BAD_REQUEST_RESPONSE},
     operation_id="settings_reload",
 )
 def reload_runtime_settings(request: Request) -> RuntimeStatusResponse:
@@ -85,7 +117,7 @@ def get_tts_engines(request: Request) -> TtsEngineSettingsResponse:
 @router.put(
     "/tts-engine",
     response_model=TtsEngineSettingsResponse,
-    responses={400: BAD_REQUEST_RESPONSE},
+    responses={400: SETTINGS_UPDATE_BAD_REQUEST_RESPONSE},
     operation_id="settings_update_tts_engine",
 )
 def update_tts_engine(

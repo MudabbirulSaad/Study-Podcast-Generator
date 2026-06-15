@@ -44,7 +44,35 @@ ChunkPreview = Annotated[str, Field(json_schema_extra={"maxLength": 120})]
 class ErrorResponse(BaseModel):
     code: str
     message: str
-    details: dict[str, object] | None = None
+    details: dict[str, object] | None
+
+
+def error_response(
+    description: str,
+    examples: dict[str, dict[str, object]],
+) -> dict[str, object]:
+    return {
+        "model": ErrorResponse,
+        "description": description,
+        "content": {"application/json": {"examples": examples}},
+    }
+
+
+def error_example(
+    *,
+    summary: str,
+    code: str,
+    message: str,
+    details: dict[str, object] | None = None,
+) -> dict[str, object]:
+    return {
+        "summary": summary,
+        "value": {
+            "code": code,
+            "message": message,
+            "details": details,
+        },
+    }
 
 
 BAD_REQUEST_RESPONSE = {
@@ -104,6 +132,8 @@ CONFLICT_RESPONSE = {
 
 
 class CreateProjectRequest(BaseModel):
+    model_config = ConfigDict(extra="forbid")
+
     title: str = Field(json_schema_extra={"minLength": 1})
 
 
@@ -124,13 +154,24 @@ class ProjectDetailResponse(ProjectResponse):
 
 
 class SaveScriptRequest(BaseModel):
+    model_config = ConfigDict(extra="forbid")
+
     text: str = Field(json_schema_extra={"minLength": 1})
     source: ScriptSource = ScriptSource.PASTED
 
 
 class StartJobRequest(BaseModel):
+    model_config = ConfigDict(extra="forbid")
+
     voice_profile_id: VoiceProfileId = "default"
-    tts_params: dict[str, float] = Field(default_factory=dict)
+    tts_params: dict[str, float] = Field(
+        default_factory=dict,
+        description=(
+            "Engine-specific numeric TTS parameters passed through to the active engine. "
+            "Unknown keys are not validated by the API."
+        ),
+        examples=[{"temperature": 0.4, "cfg_weight": 0.7}],
+    )
 
 
 class ChunkResponse(BaseModel):
@@ -242,6 +283,8 @@ class TtsEngineSettingsResponse(BaseModel):
 
 
 class UpdateTtsEngineRequest(BaseModel):
+    model_config = ConfigDict(extra="forbid")
+
     engine: str
 
 
@@ -276,11 +319,20 @@ class RuntimeSettingsResponse(BaseModel):
 
 
 class UpdateRuntimeSettingsRequest(BaseModel):
+    model_config = ConfigDict(extra="forbid")
+
     values: dict[str, RuntimeSettingValue] = Field(
         description=(
             "Runtime settings to update. Keys must be editable settings; values must be "
             "string, integer, or boolean scalars."
-        )
+        ),
+        examples=[
+            {
+                "active_tts_engine": "fake",
+                "max_chunk_chars": 320,
+                "serve_frontend": False,
+            }
+        ],
     )
 
 
@@ -296,7 +348,10 @@ class VoiceProfileResponse(BaseModel):
     display_name: str
     source: str
     sample_path: str | None = Field(
-        description="Deprecated legacy local storage path for the uploaded sample.",
+        description=(
+            "Deprecated legacy local storage path for the uploaded sample. "
+            "Clients should use has_sample instead."
+        ),
         deprecated=True,
     )
     has_sample: bool

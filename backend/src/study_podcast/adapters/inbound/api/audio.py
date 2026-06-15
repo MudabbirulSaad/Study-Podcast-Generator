@@ -5,7 +5,7 @@ from fastapi import APIRouter, Header, Request
 from fastapi import Path as PathParam
 from fastapi.responses import FileResponse
 
-from study_podcast.adapters.inbound.api.schemas import NOT_FOUND_RESPONSE
+from study_podcast.adapters.inbound.api.schemas import error_example, error_response
 
 router = APIRouter(tags=["audio"])
 
@@ -21,6 +21,16 @@ RANGE_HEADER = Header(
     alias="Range",
     description="Optional byte range request header, for example bytes=0-1023.",
     examples=["bytes=0-1023"],
+)
+AUDIO_NOT_FOUND_RESPONSE = error_response(
+    "Not Found",
+    {
+        "final_audio_not_found": error_example(
+            summary="Final WAV audio is not available",
+            code="not_found",
+            message="final audio not found",
+        )
+    },
 )
 
 AUDIO_WAV_RESPONSE = {
@@ -78,11 +88,23 @@ AUDIO_RANGE_NOT_SATISFIABLE_RESPONSE = {
         }
     },
 }
+AUDIO_BAD_RANGE_RESPONSE = {
+    "description": "Malformed Range header",
+    "content": {
+        "text/plain": {
+            "schema": {
+                "type": "string",
+                "examples": ["Only support bytes range"],
+            }
+        }
+    },
+}
 AUDIO_RESPONSES = {
     200: AUDIO_WAV_RESPONSE,
     206: AUDIO_PARTIAL_RESPONSE,
+    400: AUDIO_BAD_RANGE_RESPONSE,
     416: AUDIO_RANGE_NOT_SATISFIABLE_RESPONSE,
-    404: NOT_FOUND_RESPONSE,
+    404: AUDIO_NOT_FOUND_RESPONSE,
 }
 
 
@@ -90,6 +112,10 @@ AUDIO_RESPONSES = {
     "/projects/{project_id}/audio/final",
     response_class=FileResponse,
     responses=AUDIO_RESPONSES,
+    description=(
+        "Download the latest completed WAV for the project. This serves the same bytes as "
+        "the stream endpoint, but includes a stable download filename."
+    ),
     operation_id="audio_download_project_final",
 )
 def download_final_audio(
@@ -105,6 +131,10 @@ def download_final_audio(
     "/projects/{project_id}/audio/stream",
     response_class=FileResponse,
     responses=AUDIO_RESPONSES,
+    description=(
+        "Stream the latest completed WAV for the project. This serves the same bytes as "
+        "the final endpoint without a download filename and supports byte-range requests."
+    ),
     operation_id="audio_stream_project_final",
 )
 def stream_final_audio(
@@ -119,6 +149,10 @@ def stream_final_audio(
     "/jobs/{job_id}/audio/final",
     response_class=FileResponse,
     responses=AUDIO_RESPONSES,
+    description=(
+        "Download the completed WAV for this exact job. This serves the same bytes as "
+        "the job stream endpoint, but includes a job-specific download filename."
+    ),
     operation_id="audio_download_job_final",
 )
 def download_job_audio(
@@ -136,6 +170,10 @@ def download_job_audio(
     "/jobs/{job_id}/audio/stream",
     response_class=FileResponse,
     responses=AUDIO_RESPONSES,
+    description=(
+        "Stream the completed WAV for this exact job. This serves the same bytes as "
+        "the job final endpoint without a download filename and supports byte-range requests."
+    ),
     operation_id="audio_stream_job_final",
 )
 def stream_job_audio(

@@ -2,9 +2,29 @@ from typing import Annotated
 
 from fastapi import APIRouter, File, Form, Request, UploadFile, status
 
-from study_podcast.adapters.inbound.api.schemas import BAD_REQUEST_RESPONSE, VoiceProfileResponse
+from study_podcast.adapters.inbound.api.schemas import (
+    VoiceProfileResponse,
+    error_example,
+    error_response,
+)
 
 router = APIRouter(prefix="/voices", tags=["voices"])
+
+VOICE_UPLOAD_BAD_REQUEST_RESPONSE = error_response(
+    "Bad Request",
+    {
+        "display_name_required": error_example(
+            summary="Display name is empty",
+            code="domain_error",
+            message="voice display name is required",
+        ),
+        "unsupported_file_type": error_example(
+            summary="Voice sample has unsupported extension",
+            code="domain_error",
+            message="voice sample must be wav, mp3, flac, or m4a",
+        ),
+    },
+)
 
 VOICE_UPLOAD_REQUEST_BODY = {
     "content": {
@@ -24,7 +44,8 @@ VOICE_UPLOAD_REQUEST_BODY = {
                         "description": (
                             "Voice sample upload. Runtime accepts filenames ending in .wav, "
                             ".mp3, .flac, or .m4a. MIME type is not validated and no upload "
-                            "size limit is currently enforced here."
+                            "size limit is currently enforced here. The response includes "
+                            "has_sample for clients; sample_path is deprecated."
                         ),
                     },
                 },
@@ -47,7 +68,7 @@ def list_voices(request: Request) -> list[VoiceProfileResponse]:
     "",
     response_model=VoiceProfileResponse,
     status_code=status.HTTP_201_CREATED,
-    responses={400: BAD_REQUEST_RESPONSE},
+    responses={400: VOICE_UPLOAD_BAD_REQUEST_RESPONSE},
     openapi_extra={"requestBody": VOICE_UPLOAD_REQUEST_BODY},
     operation_id="voices_upload",
 )

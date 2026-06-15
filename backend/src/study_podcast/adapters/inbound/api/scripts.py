@@ -1,13 +1,15 @@
 from typing import Annotated
 
 from fastapi import APIRouter, Path, Request
+from fastapi.exceptions import RequestValidationError
+from pydantic import ValidationError
 from starlette.datastructures import UploadFile
 
 from study_podcast.adapters.inbound.api.schemas import (
-    BAD_REQUEST_RESPONSE,
-    NOT_FOUND_RESPONSE,
     SaveScriptRequest,
     ScriptResponse,
+    error_example,
+    error_response,
 )
 from study_podcast.domain.errors import DomainError
 from study_podcast.domain.value_objects import ScriptSource
@@ -17,6 +19,41 @@ router = APIRouter(prefix="/projects/{project_id}/script", tags=["scripts"])
 PROJECT_ID_PARAM = Path(
     description="App-generated project UUID string.",
     json_schema_extra={"format": "uuid"},
+)
+SAVE_SCRIPT_BAD_REQUEST_RESPONSE = error_response(
+    "Bad Request",
+    {
+        "script_text_required": error_example(
+            summary="Script text is empty",
+            code="domain_error",
+            message="script text is required",
+        ),
+        "project_not_found": error_example(
+            summary="Project was not found",
+            code="domain_error",
+            message="project not found",
+        ),
+        "uploaded_script_not_text": error_example(
+            summary="Uploaded script is not plain text",
+            code="domain_error",
+            message="uploaded script must be plain text",
+        ),
+        "uploaded_script_too_large": error_example(
+            summary="Uploaded script exceeds configured limit",
+            code="domain_error",
+            message="uploaded script is too large",
+        ),
+    },
+)
+SCRIPT_NOT_FOUND_RESPONSE = error_response(
+    "Not Found",
+    {
+        "script_not_found": error_example(
+            summary="Project has no active script",
+            code="not_found",
+            message="script not found",
+        )
+    },
 )
 
 SAVE_SCRIPT_REQUEST_BODY = {
@@ -48,7 +85,7 @@ SAVE_SCRIPT_REQUEST_BODY = {
 @router.put(
     "",
     response_model=ScriptResponse,
-    responses={400: BAD_REQUEST_RESPONSE},
+    responses={400: SAVE_SCRIPT_BAD_REQUEST_RESPONSE},
     openapi_extra={"requestBody": SAVE_SCRIPT_REQUEST_BODY},
     operation_id="scripts_save",
 )
@@ -67,7 +104,7 @@ async def save_script(
 @router.get(
     "",
     response_model=ScriptResponse,
-    responses={404: NOT_FOUND_RESPONSE},
+    responses={404: SCRIPT_NOT_FOUND_RESPONSE},
     operation_id="scripts_get",
 )
 def get_script(project_id: Annotated[str, PROJECT_ID_PARAM], request: Request) -> ScriptResponse:
@@ -79,7 +116,10 @@ async def _script_payload_from_request(request: Request) -> SaveScriptRequest:
     content_type = request.headers.get("content-type", "")
     if content_type.startswith("multipart/form-data"):
         return await _script_payload_from_upload(request)
-    return SaveScriptRequest.model_validate(await request.json())
+    try:
+        return SaveScriptRequest.model_validate(await request.json())
+    except ValidationError as exc:
+        raise RequestValidationError(exc.errors()) from exc
 
 
 async def _script_payload_from_upload(request: Request) -> SaveScriptRequest:

@@ -142,6 +142,8 @@ def test_voice_upload_documents_binary_multipart_file(tmp_path) -> None:
     assert ".wav" in multipart["properties"]["file"]["description"]
     assert ".mp3" in multipart["properties"]["file"]["description"]
     assert "MIME type is not validated" in multipart["properties"]["file"]["description"]
+    assert "no upload size limit" in multipart["properties"]["file"]["description"]
+    assert "sample_path is deprecated" in multipart["properties"]["file"]["description"]
 
 
 def test_audio_endpoints_document_wav_binary_and_range_responses(tmp_path) -> None:
@@ -167,12 +169,42 @@ def test_audio_endpoints_document_wav_binary_and_range_responses(tmp_path) -> No
         assert responses["206"]["content"] == {
             "audio/wav": {"schema": {"type": "string", "format": "binary"}}
         }
+        assert responses["400"]["content"] == {
+            "text/plain": {"schema": {"type": "string", "examples": ["Only support bytes range"]}}
+        }
         assert {"Accept-Ranges", "Content-Length"} <= set(responses["200"]["headers"])
         assert {"Accept-Ranges", "Content-Range", "Content-Length"} <= set(
             responses["206"]["headers"]
         )
         assert "Content-Range" in responses["416"]["headers"]
+        assert "content" not in responses["416"]
         assert "404" in responses
+        assert "WAV" in operation["description"]
+
+    assert (
+        "latest completed WAV for the project"
+        in _operation(
+            schema,
+            "/api/v1/projects/{project_id}/audio/final",
+            "get",
+        )["description"]
+    )
+    assert (
+        "exact job"
+        in _operation(
+            schema,
+            "/api/v1/jobs/{job_id}/audio/final",
+            "get",
+        )["description"]
+    )
+    assert (
+        "without a download filename"
+        in _operation(
+            schema,
+            "/api/v1/jobs/{job_id}/audio/stream",
+            "get",
+        )["description"]
+    )
 
 
 def test_job_and_script_schemas_expose_stable_enum_values(tmp_path) -> None:
@@ -238,17 +270,35 @@ def test_openapi_documents_current_error_response_statuses(tmp_path) -> None:
         ]["application/json"]["examples"]["active_job_exists"]["value"]["code"]
         == "active_job_exists"
     )
+    assert _operation(schema, "/api/v1/jobs/{job_id}", "get")["responses"]["404"]["content"][
+        "application/json"
+    ]["examples"]["job_not_found"]["value"] == {
+        "code": "not_found",
+        "message": "job not found",
+        "details": None,
+    }
     assert (
-        _operation(schema, "/api/v1/jobs/{job_id}", "get")["responses"]["404"]["content"][
+        _operation(schema, "/api/v1/projects/{project_id}", "get")["responses"]["404"]["content"][
             "application/json"
-        ]["examples"]["not_found"]["value"]["code"]
-        == "not_found"
+        ]["examples"]["project_not_found"]["value"]["message"]
+        == "project not found"
     )
     assert (
         _operation(schema, "/api/v1/projects", "post")["responses"]["400"]["content"][
             "application/json"
-        ]["examples"]["domain_error"]["value"]["code"]
-        == "domain_error"
+        ]["examples"]["project_title_required"]["value"]["message"]
+        == "project title is required"
+    )
+    cancel_examples = _operation(schema, "/api/v1/jobs/{job_id}/cancel", "post")["responses"][
+        "400"
+    ]["content"]["application/json"]["examples"]
+    assert cancel_examples["job_not_found"]["value"] == {
+        "code": "domain_error",
+        "message": "job not found",
+        "details": None,
+    }
+    assert cancel_examples["job_cannot_be_cancelled"]["value"]["message"] == (
+        "job cannot be cancelled"
     )
 
     assert (
@@ -274,6 +324,39 @@ def test_runtime_settings_schema_documents_typed_values(tmp_path) -> None:
     additional = update_values["additionalProperties"]
     assert additional is not True
     assert {item["type"] for item in additional["anyOf"]} == {"string", "integer", "boolean"}
+    assert update_values["examples"][0]["max_chunk_chars"] == 320
+    assert update_values["examples"][0]["serve_frontend"] is False
+
+
+def test_error_response_details_is_required_but_nullable(tmp_path) -> None:
+    error_response = _openapi(tmp_path)["components"]["schemas"]["ErrorResponse"]
+
+    assert {"code", "message", "details"} <= set(error_response["required"])
+    assert _schema_contains_null(error_response["properties"]["details"])
+
+
+def test_json_request_models_reject_unknown_top_level_fields(tmp_path) -> None:
+    schemas = _openapi(tmp_path)["components"]["schemas"]
+
+    for name in [
+        "CreateProjectRequest",
+        "SaveScriptRequest",
+        "StartJobRequest",
+        "UpdateRuntimeSettingsRequest",
+        "UpdateTtsEngineRequest",
+    ]:
+        assert schemas[name]["additionalProperties"] is False
+
+    assert (
+        schemas["StartJobRequest"]["properties"]["tts_params"]["additionalProperties"]["type"]
+        == "number"
+    )
+    update_values = schemas["UpdateRuntimeSettingsRequest"]["properties"]["values"]
+    assert {item["type"] for item in update_values["additionalProperties"]["anyOf"]} == {
+        "string",
+        "integer",
+        "boolean",
+    }
 
 
 def test_submit_job_request_body_is_optional_but_not_nullable(tmp_path) -> None:
@@ -284,6 +367,10 @@ def test_submit_job_request_body_is_optional_but_not_nullable(tmp_path) -> None:
     body_schema = request_body["content"]["application/json"]["schema"]
     assert body_schema == {"$ref": "#/components/schemas/StartJobRequest"}
     assert not _schema_contains_null(body_schema)
+    tts_params = schema["components"]["schemas"]["StartJobRequest"]["properties"]["tts_params"]
+    assert tts_params["additionalProperties"]["type"] == "number"
+    assert "passed through" in tts_params["description"]
+    assert tts_params["examples"][0] == {"temperature": 0.4, "cfg_weight": 0.7}
 
 
 def test_jobs_list_status_documents_comma_separated_job_status_values(tmp_path) -> None:
@@ -294,9 +381,26 @@ def test_jobs_list_status_documents_comma_separated_job_status_values(tmp_path) 
     assert status_param["required"] is False
     assert "Comma-separated" in status_param["description"]
     assert "queued,running" in status_param["schema"]["examples"]
+    assert status_param["schema"]["anyOf"][0]["type"] == "string"
+    assert "style" not in status_param
+    assert "explode" not in status_param
     assert set(status_param["schema"]["x-accepted-values"]) == set(
         schema["components"]["schemas"]["JobStatus"]["enum"]
     )
+
+
+def test_jobs_list_project_id_filter_documents_uuid_string_without_validation(tmp_path) -> None:
+    schema = _openapi(tmp_path)
+    parameters = _operation(schema, "/api/v1/jobs", "get")["parameters"]
+    project_id_param = next(
+        parameter for parameter in parameters if parameter["name"] == "project_id"
+    )
+
+    assert project_id_param["required"] is False
+    assert "format" not in project_id_param["schema"]
+    assert project_id_param["schema"]["anyOf"][0]["type"] == "string"
+    assert "exact string filter" in project_id_param["description"]
+    assert "does not validate UUID syntax" in project_id_param["description"]
 
 
 def test_path_ids_document_uuid_format_without_runtime_uuid_validation(tmp_path) -> None:
@@ -334,6 +438,88 @@ def test_safe_numeric_constraints_are_documented(tmp_path) -> None:
     assert queue["max_active_jobs_total"]["minimum"] == 1
     assert queue["concurrency_limits"]["additionalProperties"]["minimum"] == 0
     assert queue["queue_positions"]["additionalProperties"]["minimum"] == 0
+
+
+def test_job_response_snapshot_is_required_but_nullable(tmp_path) -> None:
+    schemas = _openapi(tmp_path)["components"]["schemas"]
+    job_response = schemas["JobResponse"]
+
+    assert "snapshot" in job_response["required"]
+    assert _schema_contains_null(job_response["properties"]["snapshot"])
+
+
+def test_voice_profile_deprecates_sample_path_in_favor_of_has_sample(tmp_path) -> None:
+    voice = _openapi(tmp_path)["components"]["schemas"]["VoiceProfileResponse"]["properties"]
+
+    assert voice["sample_path"]["deprecated"] is True
+    assert "has_sample" in voice["sample_path"]["description"]
+    assert voice["has_sample"]["type"] == "boolean"
+
+
+def test_openapi_includes_global_metadata_and_stable_success_examples(tmp_path) -> None:
+    schema = _openapi(tmp_path)
+
+    assert schema["servers"] == [{"url": "/", "description": "Current host"}]
+    assert {tag["name"] for tag in schema["tags"]} >= {
+        "projects",
+        "scripts",
+        "jobs",
+        "queue",
+        "audio",
+        "settings",
+        "voices",
+    }
+
+    examples = [
+        (
+            "/api/v1/projects",
+            "post",
+            "201",
+            "created_project",
+            ("title", "Biology 101"),
+        ),
+        (
+            "/api/v1/projects/{project_id}/script",
+            "put",
+            "200",
+            "saved_script",
+            ("source", "pasted"),
+        ),
+        (
+            "/api/v1/projects/{project_id}/jobs",
+            "post",
+            "202",
+            "submitted_job",
+            ("status", "queued"),
+        ),
+        (
+            "/api/v1/jobs/{job_id}",
+            "get",
+            "200",
+            "completed_job",
+            ("status", "completed"),
+        ),
+        (
+            "/api/v1/settings",
+            "get",
+            "200",
+            "runtime_settings",
+            ("runtime_status", "idle"),
+        ),
+        (
+            "/api/v1/voices",
+            "post",
+            "201",
+            "uploaded_voice",
+            ("has_sample", True),
+        ),
+    ]
+
+    for path, method, status_code, example_name, (field, expected) in examples:
+        value = _operation(schema, path, method)["responses"][status_code]["content"][
+            "application/json"
+        ]["examples"][example_name]["value"]
+        assert value[field] == expected
 
 
 def test_enum_backed_responses_keep_existing_json_strings(tmp_path) -> None:
