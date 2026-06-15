@@ -16,10 +16,16 @@ VOICE_UPLOAD_REQUEST_BODY = {
                     "display_name": {
                         "type": "string",
                         "minLength": 1,
+                        "description": "Non-empty display name after trimming whitespace.",
                     },
                     "file": {
                         "type": "string",
                         "format": "binary",
+                        "description": (
+                            "Voice sample upload. Runtime accepts filenames ending in .wav, "
+                            ".mp3, .flac, or .m4a. MIME type is not validated and no upload "
+                            "size limit is currently enforced here."
+                        ),
                     },
                 },
             }

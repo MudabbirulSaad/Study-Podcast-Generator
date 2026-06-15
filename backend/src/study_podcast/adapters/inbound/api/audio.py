@@ -1,11 +1,27 @@
 from pathlib import Path
+from typing import Annotated
 
-from fastapi import APIRouter, Request
+from fastapi import APIRouter, Header, Request
+from fastapi import Path as PathParam
 from fastapi.responses import FileResponse
 
 from study_podcast.adapters.inbound.api.schemas import NOT_FOUND_RESPONSE
 
 router = APIRouter(tags=["audio"])
+
+PROJECT_ID_PARAM = PathParam(
+    description="App-generated project UUID string.",
+    json_schema_extra={"format": "uuid"},
+)
+JOB_ID_PARAM = PathParam(
+    description="App-generated job UUID string.",
+    json_schema_extra={"format": "uuid"},
+)
+RANGE_HEADER = Header(
+    alias="Range",
+    description="Optional byte range request header, for example bytes=0-1023.",
+    examples=["bytes=0-1023"],
+)
 
 AUDIO_WAV_RESPONSE = {
     "description": "WAV audio file",
@@ -76,7 +92,11 @@ AUDIO_RESPONSES = {
     responses=AUDIO_RESPONSES,
     operation_id="audio_download_project_final",
 )
-def download_final_audio(project_id: str, request: Request) -> FileResponse:
+def download_final_audio(
+    project_id: Annotated[str, PROJECT_ID_PARAM],
+    request: Request,
+    range_header: Annotated[str | None, RANGE_HEADER] = None,
+) -> FileResponse:
     path = _latest_final_audio_path(project_id, request)
     return _audio_response(path, filename="study-podcast.wav")
 
@@ -87,7 +107,11 @@ def download_final_audio(project_id: str, request: Request) -> FileResponse:
     responses=AUDIO_RESPONSES,
     operation_id="audio_stream_project_final",
 )
-def stream_final_audio(project_id: str, request: Request) -> FileResponse:
+def stream_final_audio(
+    project_id: Annotated[str, PROJECT_ID_PARAM],
+    request: Request,
+    range_header: Annotated[str | None, RANGE_HEADER] = None,
+) -> FileResponse:
     return _audio_response(_latest_final_audio_path(project_id, request))
 
 
@@ -97,7 +121,11 @@ def stream_final_audio(project_id: str, request: Request) -> FileResponse:
     responses=AUDIO_RESPONSES,
     operation_id="audio_download_job_final",
 )
-def download_job_audio(job_id: str, request: Request) -> FileResponse:
+def download_job_audio(
+    job_id: Annotated[str, JOB_ID_PARAM],
+    request: Request,
+    range_header: Annotated[str | None, RANGE_HEADER] = None,
+) -> FileResponse:
     return _audio_response(
         _job_final_audio_path(job_id, request),
         filename=f"{job_id}.wav",
@@ -110,7 +138,11 @@ def download_job_audio(job_id: str, request: Request) -> FileResponse:
     responses=AUDIO_RESPONSES,
     operation_id="audio_stream_job_final",
 )
-def stream_job_audio(job_id: str, request: Request) -> FileResponse:
+def stream_job_audio(
+    job_id: Annotated[str, JOB_ID_PARAM],
+    request: Request,
+    range_header: Annotated[str | None, RANGE_HEADER] = None,
+) -> FileResponse:
     return _audio_response(_job_final_audio_path(job_id, request))
 
 

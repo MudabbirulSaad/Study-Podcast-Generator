@@ -1,4 +1,6 @@
-from fastapi import APIRouter, Request
+from typing import Annotated
+
+from fastapi import APIRouter, Path, Request
 from starlette.datastructures import UploadFile
 
 from study_podcast.adapters.inbound.api.schemas import (
@@ -12,6 +14,11 @@ from study_podcast.domain.value_objects import ScriptSource
 
 router = APIRouter(prefix="/projects/{project_id}/script", tags=["scripts"])
 
+PROJECT_ID_PARAM = Path(
+    description="App-generated project UUID string.",
+    json_schema_extra={"format": "uuid"},
+)
+
 SAVE_SCRIPT_REQUEST_BODY = {
     "content": {
         "application/json": {"schema": {"$ref": "#/components/schemas/SaveScriptRequest"}},
@@ -23,6 +30,12 @@ SAVE_SCRIPT_REQUEST_BODY = {
                     "file": {
                         "type": "string",
                         "format": "binary",
+                        "description": (
+                            "Plain text script upload. Runtime accepts .txt files with "
+                            "content type text/plain or application/octet-stream. The file "
+                            "is read as UTF-8 and rejected when it exceeds the configured "
+                            "max_script_size_bytes setting."
+                        ),
                     }
                 },
             }
@@ -39,7 +52,9 @@ SAVE_SCRIPT_REQUEST_BODY = {
     openapi_extra={"requestBody": SAVE_SCRIPT_REQUEST_BODY},
     operation_id="scripts_save",
 )
-async def save_script(project_id: str, request: Request) -> ScriptResponse:
+async def save_script(
+    project_id: Annotated[str, PROJECT_ID_PARAM], request: Request
+) -> ScriptResponse:
     payload = await _script_payload_from_request(request)
     script, chunks = request.app.state.container.script_endpoint.save_script(
         project_id=project_id,
@@ -55,7 +70,7 @@ async def save_script(project_id: str, request: Request) -> ScriptResponse:
     responses={404: NOT_FOUND_RESPONSE},
     operation_id="scripts_get",
 )
-def get_script(project_id: str, request: Request) -> ScriptResponse:
+def get_script(project_id: Annotated[str, PROJECT_ID_PARAM], request: Request) -> ScriptResponse:
     script, chunks = request.app.state.container.script_endpoint.get_script(project_id)
     return ScriptResponse.from_domain(script, chunks)
 

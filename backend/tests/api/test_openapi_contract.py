@@ -32,6 +32,20 @@ def _assert_error_response(operation: dict, status_code: str) -> None:
     }
 
 
+def _resolve_ref(schema: dict, ref: str) -> dict:
+    assert ref.startswith("#/")
+    current = schema
+    for part in ref.removeprefix("#/").split("/"):
+        current = current[part]
+    return current
+
+
+def _schema_contains_null(schema: dict) -> bool:
+    if schema.get("type") == "null":
+        return True
+    return any(_schema_contains_null(item) for item in schema.get("anyOf", []))
+
+
 def test_openapi_uses_stable_operation_ids(tmp_path) -> None:
     schema = _openapi(tmp_path)
 
@@ -65,6 +79,31 @@ def test_openapi_uses_stable_operation_ids(tmp_path) -> None:
     for (method, path), operation_id in expected_operation_ids.items():
         assert _operation(schema, path, method)["operationId"] == operation_id
 
+    operation_ids = [
+        operation["operationId"]
+        for path_item in schema["paths"].values()
+        for operation in path_item.values()
+        if isinstance(operation, dict) and "operationId" in operation
+    ]
+    assert len(operation_ids) == len(set(operation_ids))
+
+
+def test_openapi_schema_local_refs_resolve(tmp_path) -> None:
+    schema = _openapi(tmp_path)
+
+    def walk(value):
+        if isinstance(value, dict):
+            ref = value.get("$ref")
+            if ref is not None:
+                _resolve_ref(schema, ref)
+            for child in value.values():
+                walk(child)
+        elif isinstance(value, list):
+            for child in value:
+                walk(child)
+
+    walk(schema)
+
 
 def test_save_script_documents_json_and_multipart_request_body(tmp_path) -> None:
     schema = _openapi(tmp_path)
@@ -81,11 +120,13 @@ def test_save_script_documents_json_and_multipart_request_body(tmp_path) -> None
     assert (
         schema["components"]["schemas"]["SaveScriptRequest"]["properties"]["text"]["minLength"] == 1
     )
-    assert content["multipart/form-data"]["schema"] == {
-        "type": "object",
-        "required": ["file"],
-        "properties": {"file": {"type": "string", "format": "binary"}},
-    }
+    multipart = content["multipart/form-data"]["schema"]
+    assert multipart["required"] == ["file"]
+    assert multipart["properties"]["file"]["format"] == "binary"
+    assert ".txt" in multipart["properties"]["file"]["description"]
+    assert "text/plain" in multipart["properties"]["file"]["description"]
+    assert "application/octet-stream" in multipart["properties"]["file"]["description"]
+    assert "max_script_size_bytes" in multipart["properties"]["file"]["description"]
 
 
 def test_voice_upload_documents_binary_multipart_file(tmp_path) -> None:
@@ -95,14 +136,12 @@ def test_voice_upload_documents_binary_multipart_file(tmp_path) -> None:
     multipart = operation["requestBody"]["content"]["multipart/form-data"]["schema"]
     assert operation["requestBody"]["required"] is True
     assert "Body_voices_upload" not in schema["components"]["schemas"]
-    assert multipart == {
-        "type": "object",
-        "required": ["display_name", "file"],
-        "properties": {
-            "display_name": {"type": "string", "minLength": 1},
-            "file": {"type": "string", "format": "binary"},
-        },
-    }
+    assert multipart["required"] == ["display_name", "file"]
+    assert multipart["properties"]["display_name"]["minLength"] == 1
+    assert multipart["properties"]["file"]["format"] == "binary"
+    assert ".wav" in multipart["properties"]["file"]["description"]
+    assert ".mp3" in multipart["properties"]["file"]["description"]
+    assert "MIME type is not validated" in multipart["properties"]["file"]["description"]
 
 
 def test_audio_endpoints_document_wav_binary_and_range_responses(tmp_path) -> None:
@@ -115,7 +154,13 @@ def test_audio_endpoints_document_wav_binary_and_range_responses(tmp_path) -> No
     ]
 
     for path in audio_paths:
-        responses = _operation(schema, path, "get")["responses"]
+        operation = _operation(schema, path, "get")
+        parameters = operation["parameters"]
+        responses = operation["responses"]
+        range_param = next(parameter for parameter in parameters if parameter["in"] == "header")
+        assert range_param["name"] == "Range"
+        assert range_param["required"] is False
+        assert "bytes=" in range_param["schema"]["description"]
         assert responses["200"]["content"] == {
             "audio/wav": {"schema": {"type": "string", "format": "binary"}}
         }
@@ -188,12 +233,89 @@ def test_openapi_documents_current_error_response_statuses(tmp_path) -> None:
         _assert_error_response(_operation(schema, path, method), status_code)
 
     assert (
+        _operation(schema, "/api/v1/projects/{project_id}/jobs", "post")["responses"]["409"][
+            "content"
+        ]["application/json"]["examples"]["active_job_exists"]["value"]["code"]
+        == "active_job_exists"
+    )
+    assert (
+        _operation(schema, "/api/v1/jobs/{job_id}", "get")["responses"]["404"]["content"][
+            "application/json"
+        ]["examples"]["not_found"]["value"]["code"]
+        == "not_found"
+    )
+    assert (
+        _operation(schema, "/api/v1/projects", "post")["responses"]["400"]["content"][
+            "application/json"
+        ]["examples"]["domain_error"]["value"]["code"]
+        == "domain_error"
+    )
+
+    assert (
         "404" not in _operation(schema, "/api/v1/projects/{project_id}/script", "put")["responses"]
     )
     assert (
         "404" not in _operation(schema, "/api/v1/projects/{project_id}/jobs", "post")["responses"]
     )
     assert "404" not in _operation(schema, "/api/v1/jobs/{job_id}/cancel", "post")["responses"]
+
+
+def test_runtime_settings_schema_documents_typed_values(tmp_path) -> None:
+    schemas = _openapi(tmp_path)["components"]["schemas"]
+    response_values = schemas["RuntimeSettingsResponse"]["properties"]["values"]
+    update_values = schemas["UpdateRuntimeSettingsRequest"]["properties"]["values"]
+
+    settings_values = schemas[response_values["$ref"].split("/")[-1]]
+    assert settings_values["properties"]["active_tts_engine"]["type"] == "string"
+    assert settings_values["properties"]["storage_root"]["type"] == "string"
+    assert settings_values["properties"]["max_chunk_chars"]["type"] == "integer"
+    assert settings_values["properties"]["serve_frontend"]["type"] == "boolean"
+
+    additional = update_values["additionalProperties"]
+    assert additional is not True
+    assert {item["type"] for item in additional["anyOf"]} == {"string", "integer", "boolean"}
+
+
+def test_submit_job_request_body_is_optional_but_not_nullable(tmp_path) -> None:
+    schema = _openapi(tmp_path)
+    request_body = _operation(schema, "/api/v1/projects/{project_id}/jobs", "post")["requestBody"]
+
+    assert request_body["required"] is False
+    body_schema = request_body["content"]["application/json"]["schema"]
+    assert body_schema == {"$ref": "#/components/schemas/StartJobRequest"}
+    assert not _schema_contains_null(body_schema)
+
+
+def test_jobs_list_status_documents_comma_separated_job_status_values(tmp_path) -> None:
+    schema = _openapi(tmp_path)
+    parameters = _operation(schema, "/api/v1/jobs", "get")["parameters"]
+    status_param = next(parameter for parameter in parameters if parameter["name"] == "status")
+
+    assert status_param["required"] is False
+    assert "Comma-separated" in status_param["description"]
+    assert "queued,running" in status_param["schema"]["examples"]
+    assert set(status_param["schema"]["x-accepted-values"]) == set(
+        schema["components"]["schemas"]["JobStatus"]["enum"]
+    )
+
+
+def test_path_ids_document_uuid_format_without_runtime_uuid_validation(tmp_path) -> None:
+    schema = _openapi(tmp_path)
+    paths = [
+        ("/api/v1/projects/{project_id}", "get", "project_id"),
+        ("/api/v1/projects/{project_id}/jobs", "post", "project_id"),
+        ("/api/v1/jobs/{job_id}", "get", "job_id"),
+        ("/api/v1/jobs/{job_id}/audio/final", "get", "job_id"),
+    ]
+
+    for path, method, name in paths:
+        parameter = next(
+            item
+            for item in _operation(schema, path, method)["parameters"]
+            if item["in"] == "path" and item["name"] == name
+        )
+        assert parameter["schema"]["format"] == "uuid"
+        assert parameter["schema"]["type"] == "string"
 
 
 def test_safe_numeric_constraints_are_documented(tmp_path) -> None:

@@ -66,6 +66,9 @@ def _configure_openapi(app: FastAPI) -> None:
         schemas = schema.setdefault("components", {}).setdefault("schemas", {})
         schemas["SaveScriptRequest"] = save_script_schema
         schemas.pop("Body_voices_upload", None)
+        schema["paths"]["/api/v1/projects/{project_id}/jobs"]["post"]["requestBody"] = (
+            jobs.START_JOB_REQUEST_BODY
+        )
         schema["paths"]["/api/v1/voices"]["post"]["requestBody"] = voices.VOICE_UPLOAD_REQUEST_BODY
         app.openapi_schema = schema
         return app.openapi_schema

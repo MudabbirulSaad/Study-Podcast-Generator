@@ -1,4 +1,6 @@
-from fastapi import APIRouter, Request, status
+from typing import Annotated
+
+from fastapi import APIRouter, Path, Request, status
 
 from study_podcast.adapters.inbound.api.schemas import (
     BAD_REQUEST_RESPONSE,
@@ -10,6 +12,11 @@ from study_podcast.adapters.inbound.api.schemas import (
 )
 
 router = APIRouter(prefix="/projects", tags=["projects"])
+
+PROJECT_ID_PARAM = Path(
+    description="App-generated project UUID string.",
+    json_schema_extra={"format": "uuid"},
+)
 
 
 @router.post(
@@ -36,7 +43,9 @@ def list_projects(request: Request, q: str | None = None) -> list[ProjectRespons
     responses={404: NOT_FOUND_RESPONSE},
     operation_id="projects_get",
 )
-def get_project(project_id: str, request: Request) -> ProjectDetailResponse:
+def get_project(
+    project_id: Annotated[str, PROJECT_ID_PARAM], request: Request
+) -> ProjectDetailResponse:
     detail = request.app.state.container.project_workspace.get_project_detail(project_id)
     return ProjectDetailResponse(
         **ProjectResponse.from_domain(detail.project).model_dump(),

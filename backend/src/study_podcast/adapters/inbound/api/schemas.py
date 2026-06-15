@@ -1,7 +1,8 @@
 from datetime import datetime
+from pathlib import Path
 from typing import Annotated, Literal
 
-from pydantic import BaseModel, ConfigDict, Field
+from pydantic import BaseModel, ConfigDict, Field, model_validator
 
 from study_podcast.domain.entities import (
     ActivePodcastScript,
@@ -14,6 +15,31 @@ from study_podcast.domain.entities import (
 )
 from study_podcast.domain.value_objects import JobPhase, JobStatus, ScriptSource
 
+ProjectId = Annotated[
+    str,
+    Field(
+        description="App-generated project UUID string.",
+        json_schema_extra={"format": "uuid"},
+    ),
+]
+JobId = Annotated[
+    str,
+    Field(
+        description="App-generated job UUID string.",
+        json_schema_extra={"format": "uuid"},
+    ),
+]
+VoiceProfileId = Annotated[
+    str,
+    Field(description='Voice profile identifier. The built-in default voice uses "default".'),
+]
+RuntimeSettingValue = str | int | bool
+RuntimeStatus = Literal["idle", "reload_pending", "reloading", "ready", "failed"]
+NonNegativeInt = Annotated[int, Field(ge=0)]
+PositiveInt = Annotated[int, Field(ge=1)]
+ProgressPercent = Annotated[int, Field(ge=0, le=100)]
+ChunkPreview = Annotated[str, Field(json_schema_extra={"maxLength": 120})]
+
 
 class ErrorResponse(BaseModel):
     code: str
@@ -21,13 +47,60 @@ class ErrorResponse(BaseModel):
     details: dict[str, object] | None = None
 
 
-BAD_REQUEST_RESPONSE = {"model": ErrorResponse, "description": "Bad Request"}
-NOT_FOUND_RESPONSE = {"model": ErrorResponse, "description": "Not Found"}
-CONFLICT_RESPONSE = {"model": ErrorResponse, "description": "Conflict"}
-RuntimeStatus = Literal["idle", "reload_pending", "reloading", "ready", "failed"]
-NonNegativeInt = Annotated[int, Field(ge=0)]
-PositiveInt = Annotated[int, Field(ge=1)]
-ProgressPercent = Annotated[int, Field(ge=0, le=100)]
+BAD_REQUEST_RESPONSE = {
+    "model": ErrorResponse,
+    "description": "Bad Request",
+    "content": {
+        "application/json": {
+            "examples": {
+                "domain_error": {
+                    "summary": "Domain validation error",
+                    "value": {
+                        "code": "domain_error",
+                        "message": "script text is required",
+                        "details": None,
+                    },
+                }
+            }
+        }
+    },
+}
+NOT_FOUND_RESPONSE = {
+    "model": ErrorResponse,
+    "description": "Not Found",
+    "content": {
+        "application/json": {
+            "examples": {
+                "not_found": {
+                    "summary": "Resource not found",
+                    "value": {
+                        "code": "not_found",
+                        "message": "job not found",
+                        "details": None,
+                    },
+                }
+            }
+        }
+    },
+}
+CONFLICT_RESPONSE = {
+    "model": ErrorResponse,
+    "description": "Conflict",
+    "content": {
+        "application/json": {
+            "examples": {
+                "active_job_exists": {
+                    "summary": "Project already has an active job",
+                    "value": {
+                        "code": "active_job_exists",
+                        "message": "This project already has an active generation job.",
+                        "details": {"job_id": "00000000-0000-0000-0000-000000000000"},
+                    },
+                }
+            }
+        }
+    },
+}
 
 
 class CreateProjectRequest(BaseModel):
@@ -35,7 +108,7 @@ class CreateProjectRequest(BaseModel):
 
 
 class ProjectResponse(BaseModel):
-    id: str
+    id: ProjectId
     title: str
     created_at: datetime
     updated_at: datetime
@@ -56,7 +129,7 @@ class SaveScriptRequest(BaseModel):
 
 
 class StartJobRequest(BaseModel):
-    voice_profile_id: str = "default"
+    voice_profile_id: VoiceProfileId = "default"
     tts_params: dict[str, float] = Field(default_factory=dict)
 
 
@@ -71,7 +144,7 @@ class ChunkResponse(BaseModel):
 
 
 class ScriptResponse(BaseModel):
-    project_id: str
+    project_id: ProjectId
     text: str
     source: ScriptSource
     speakers: list[str]
@@ -93,15 +166,15 @@ class ScriptResponse(BaseModel):
 class JobResponse(BaseModel):
     model_config = ConfigDict(from_attributes=True)
 
-    id: str
-    project_id: str
+    id: JobId
+    project_id: ProjectId
     status: JobStatus
     phase: JobPhase
     progress_percent: ProgressPercent
     total_chunks: NonNegativeInt
     completed_chunks: NonNegativeInt
     current_chunk_index: NonNegativeInt | None
-    current_chunk_preview: str | None
+    current_chunk_preview: ChunkPreview | None
     message: str
     failure_reason: str | None
     cancellation_requested: bool
@@ -125,13 +198,13 @@ class JobResponse(BaseModel):
 
 
 class JobSnapshotResponse(BaseModel):
-    job_id: str
-    project_id: str
+    job_id: JobId
+    project_id: ProjectId
     script_text: str
     script_source: ScriptSource
     speakers: list[str]
     chunks: list[ChunkResponse]
-    voice_profile_id: str
+    voice_profile_id: VoiceProfileId
     tts_params: dict[str, float]
     created_at: datetime
 
@@ -172,8 +245,29 @@ class UpdateTtsEngineRequest(BaseModel):
     engine: str
 
 
+class RuntimeSettingsValuesResponse(BaseModel):
+    active_tts_engine: str
+    chatterbox_device: str
+    max_script_size_bytes: int
+    max_chunk_chars: int
+    max_chunks: int
+    chatterbox_max_concurrent_jobs: int
+    audio_merge_max_concurrent_jobs: int
+    max_active_jobs_total: int
+    storage_root: str
+    frontend_origin: str
+    serve_frontend: bool
+
+    @model_validator(mode="before")
+    @classmethod
+    def serialize_path_values(cls, value):
+        if not isinstance(value, dict):
+            return value
+        return {key: str(item) if isinstance(item, Path) else item for key, item in value.items()}
+
+
 class RuntimeSettingsResponse(BaseModel):
-    values: dict[str, object]
+    values: RuntimeSettingsValuesResponse
     editable_fields: list[str]
     available_engines: list[str]
     reload_required: bool
@@ -182,7 +276,12 @@ class RuntimeSettingsResponse(BaseModel):
 
 
 class UpdateRuntimeSettingsRequest(BaseModel):
-    values: dict[str, object]
+    values: dict[str, RuntimeSettingValue] = Field(
+        description=(
+            "Runtime settings to update. Keys must be editable settings; values must be "
+            "string, integer, or boolean scalars."
+        )
+    )
 
 
 class RuntimeStatusResponse(BaseModel):
@@ -193,13 +292,25 @@ class RuntimeStatusResponse(BaseModel):
 
 
 class VoiceProfileResponse(BaseModel):
-    id: str
+    id: VoiceProfileId
     display_name: str
     source: str
-    sample_path: str | None
+    sample_path: str | None = Field(
+        description="Deprecated legacy local storage path for the uploaded sample.",
+        deprecated=True,
+    )
+    has_sample: bool
     created_at: datetime
     updated_at: datetime
 
     @classmethod
     def from_domain(cls, profile: VoiceProfile) -> "VoiceProfileResponse":
-        return cls.model_validate(profile, from_attributes=True)
+        return cls(
+            id=profile.id,
+            display_name=profile.display_name,
+            source=profile.source,
+            sample_path=profile.sample_path,
+            has_sample=profile.sample_path is not None,
+            created_at=profile.created_at,
+            updated_at=profile.updated_at,
+        )

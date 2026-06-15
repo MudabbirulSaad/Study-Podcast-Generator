@@ -134,6 +134,33 @@ def test_generation_job_stores_immutable_script_snapshot_and_can_rerun(tmp_path)
     assert rerun_script.json()["text"] == "[S1] Original script."
 
 
+def test_submit_job_preserves_explicit_null_body_behavior(tmp_path) -> None:
+    client = TestClient(
+        create_app(
+            Settings(
+                database_path=tmp_path / "app.sqlite3",
+                env_file_path=tmp_path / ".env",
+                auto_start_worker_pool=False,
+            )
+        )
+    )
+    project_id = client.post("/api/v1/projects", json={"title": "Null body"}).json()["id"]
+    client.put(
+        f"/api/v1/projects/{project_id}/script",
+        json={"text": "[S1] Explicit null still uses defaults.", "source": "pasted"},
+    )
+
+    response = client.post(
+        f"/api/v1/projects/{project_id}/jobs",
+        content="null",
+        headers={"content-type": "application/json"},
+    )
+
+    assert response.status_code == 202
+    assert response.json()["snapshot"]["voice_profile_id"] == "default"
+    assert response.json()["snapshot"]["tts_params"] == {}
+
+
 def test_job_list_supports_search_across_metadata_and_snapshot(tmp_path) -> None:
     client = TestClient(
         create_app(
