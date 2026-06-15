@@ -12,12 +12,19 @@ from study_podcast.domain.entities import (
     TextChunk,
     VoiceProfile,
 )
+from study_podcast.domain.value_objects import JobPhase, JobStatus, ScriptSource
 
 
 class ErrorResponse(BaseModel):
     code: str
     message: str
     details: dict[str, object] | None = None
+
+
+BAD_REQUEST_RESPONSE = {"model": ErrorResponse, "description": "Bad Request"}
+NOT_FOUND_RESPONSE = {"model": ErrorResponse, "description": "Not Found"}
+CONFLICT_RESPONSE = {"model": ErrorResponse, "description": "Conflict"}
+RuntimeStatus = Literal["idle", "reload_pending", "reloading", "ready", "failed"]
 
 
 class CreateProjectRequest(BaseModel):
@@ -42,7 +49,7 @@ class ProjectDetailResponse(ProjectResponse):
 
 class SaveScriptRequest(BaseModel):
     text: str
-    source: Literal["pasted", "uploaded"] = "pasted"
+    source: ScriptSource = ScriptSource.PASTED
 
 
 class StartJobRequest(BaseModel):
@@ -63,7 +70,7 @@ class ChunkResponse(BaseModel):
 class ScriptResponse(BaseModel):
     project_id: str
     text: str
-    source: str
+    source: ScriptSource
     speakers: list[str]
     updated_at: datetime
     chunks: list[ChunkResponse]
@@ -85,8 +92,8 @@ class JobResponse(BaseModel):
 
     id: str
     project_id: str
-    status: str
-    phase: str
+    status: JobStatus
+    phase: JobPhase
     progress_percent: int
     total_chunks: int
     completed_chunks: int
@@ -118,7 +125,7 @@ class JobSnapshotResponse(BaseModel):
     job_id: str
     project_id: str
     script_text: str
-    script_source: str
+    script_source: ScriptSource
     speakers: list[str]
     chunks: list[ChunkResponse]
     voice_profile_id: str
@@ -167,7 +174,7 @@ class RuntimeSettingsResponse(BaseModel):
     editable_fields: list[str]
     available_engines: list[str]
     reload_required: bool
-    runtime_status: str
+    runtime_status: RuntimeStatus
     last_reload_error: str | None
 
 
@@ -176,7 +183,7 @@ class UpdateRuntimeSettingsRequest(BaseModel):
 
 
 class RuntimeStatusResponse(BaseModel):
-    status: str
+    status: RuntimeStatus
     active_engine: str
     reload_required: bool
     last_reload_error: str | None

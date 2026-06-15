@@ -1,6 +1,7 @@
 from fastapi import APIRouter, Request, status
 
 from study_podcast.adapters.inbound.api.schemas import (
+    BAD_REQUEST_RESPONSE,
     RuntimeSettingsResponse,
     RuntimeStatusResponse,
     TtsEngineSettingsResponse,
@@ -25,7 +26,7 @@ def get_runtime_settings(request: Request) -> RuntimeSettingsResponse:
     )
 
 
-@router.put("", response_model=RuntimeSettingsResponse)
+@router.put("", response_model=RuntimeSettingsResponse, responses={400: BAD_REQUEST_RESPONSE})
 def update_runtime_settings(
     payload: UpdateRuntimeSettingsRequest,
     request: Request,
@@ -34,7 +35,12 @@ def update_runtime_settings(
     return get_runtime_settings(request)
 
 
-@router.post("/reload", response_model=RuntimeStatusResponse, status_code=status.HTTP_202_ACCEPTED)
+@router.post(
+    "/reload",
+    response_model=RuntimeStatusResponse,
+    status_code=status.HTTP_202_ACCEPTED,
+    responses={400: BAD_REQUEST_RESPONSE},
+)
 def reload_runtime_settings(request: Request) -> RuntimeStatusResponse:
     request.app.state.container.runtime_settings_endpoint.reload()
     return get_runtime_status(request)
@@ -62,7 +68,9 @@ def get_tts_engines(request: Request) -> TtsEngineSettingsResponse:
     )
 
 
-@router.put("/tts-engine", response_model=TtsEngineSettingsResponse)
+@router.put(
+    "/tts-engine", response_model=TtsEngineSettingsResponse, responses={400: BAD_REQUEST_RESPONSE}
+)
 def update_tts_engine(
     payload: UpdateTtsEngineRequest,
     request: Request,

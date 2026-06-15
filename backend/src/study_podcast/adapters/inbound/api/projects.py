@@ -1,6 +1,8 @@
 from fastapi import APIRouter, Request, status
 
 from study_podcast.adapters.inbound.api.schemas import (
+    BAD_REQUEST_RESPONSE,
+    NOT_FOUND_RESPONSE,
     CreateProjectRequest,
     JobResponse,
     ProjectDetailResponse,
@@ -10,7 +12,12 @@ from study_podcast.adapters.inbound.api.schemas import (
 router = APIRouter(prefix="/projects", tags=["projects"])
 
 
-@router.post("", response_model=ProjectResponse, status_code=status.HTTP_201_CREATED)
+@router.post(
+    "",
+    response_model=ProjectResponse,
+    status_code=status.HTTP_201_CREATED,
+    responses={400: BAD_REQUEST_RESPONSE},
+)
 def create_project(payload: CreateProjectRequest, request: Request) -> ProjectResponse:
     project = request.app.state.container.project_workspace.create_project(payload.title)
     return ProjectResponse.from_domain(project)
@@ -22,7 +29,9 @@ def list_projects(request: Request, q: str | None = None) -> list[ProjectRespons
     return [ProjectResponse.from_domain(project) for project in projects]
 
 
-@router.get("/{project_id}", response_model=ProjectDetailResponse)
+@router.get(
+    "/{project_id}", response_model=ProjectDetailResponse, responses={404: NOT_FOUND_RESPONSE}
+)
 def get_project(project_id: str, request: Request) -> ProjectDetailResponse:
     detail = request.app.state.container.project_workspace.get_project_detail(project_id)
     return ProjectDetailResponse(

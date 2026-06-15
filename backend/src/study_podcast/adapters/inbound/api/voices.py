@@ -2,7 +2,7 @@ from typing import Annotated
 
 from fastapi import APIRouter, File, Form, Request, UploadFile, status
 
-from study_podcast.adapters.inbound.api.schemas import VoiceProfileResponse
+from study_podcast.adapters.inbound.api.schemas import BAD_REQUEST_RESPONSE, VoiceProfileResponse
 
 router = APIRouter(prefix="/voices", tags=["voices"])
 
@@ -15,7 +15,12 @@ def list_voices(request: Request) -> list[VoiceProfileResponse]:
     ]
 
 
-@router.post("", response_model=VoiceProfileResponse, status_code=status.HTTP_201_CREATED)
+@router.post(
+    "",
+    response_model=VoiceProfileResponse,
+    status_code=status.HTTP_201_CREATED,
+    responses={400: BAD_REQUEST_RESPONSE},
+)
 async def upload_voice(
     request: Request,
     display_name: Annotated[str, Form()],
