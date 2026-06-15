@@ -9,6 +9,16 @@ router = APIRouter(tags=["audio"])
 
 AUDIO_WAV_RESPONSE = {
     "description": "WAV audio file",
+    "headers": {
+        "Accept-Ranges": {
+            "description": "Range unit accepted by the file response.",
+            "schema": {"type": "string"},
+        },
+        "Content-Length": {
+            "description": "Size of the response body in bytes.",
+            "schema": {"type": "integer"},
+        },
+    },
     "content": {
         "audio/wav": {
             "schema": {
@@ -18,13 +28,53 @@ AUDIO_WAV_RESPONSE = {
         }
     },
 }
-AUDIO_RESPONSES = {200: AUDIO_WAV_RESPONSE, 404: NOT_FOUND_RESPONSE}
+AUDIO_PARTIAL_RESPONSE = {
+    "description": "Partial WAV audio content",
+    "headers": {
+        "Accept-Ranges": {
+            "description": "Range unit accepted by the file response.",
+            "schema": {"type": "string"},
+        },
+        "Content-Range": {
+            "description": "Byte range returned for the partial response.",
+            "schema": {"type": "string"},
+        },
+        "Content-Length": {
+            "description": "Size of the partial response body in bytes.",
+            "schema": {"type": "integer"},
+        },
+    },
+    "content": {
+        "audio/wav": {
+            "schema": {
+                "type": "string",
+                "format": "binary",
+            }
+        }
+    },
+}
+AUDIO_RANGE_NOT_SATISFIABLE_RESPONSE = {
+    "description": "Range Not Satisfiable",
+    "headers": {
+        "Content-Range": {
+            "description": "Unsatisfied byte range and complete resource size.",
+            "schema": {"type": "string"},
+        }
+    },
+}
+AUDIO_RESPONSES = {
+    200: AUDIO_WAV_RESPONSE,
+    206: AUDIO_PARTIAL_RESPONSE,
+    416: AUDIO_RANGE_NOT_SATISFIABLE_RESPONSE,
+    404: NOT_FOUND_RESPONSE,
+}
 
 
 @router.get(
     "/projects/{project_id}/audio/final",
     response_class=FileResponse,
     responses=AUDIO_RESPONSES,
+    operation_id="audio_download_project_final",
 )
 def download_final_audio(project_id: str, request: Request) -> FileResponse:
     path = _latest_final_audio_path(project_id, request)
@@ -35,6 +85,7 @@ def download_final_audio(project_id: str, request: Request) -> FileResponse:
     "/projects/{project_id}/audio/stream",
     response_class=FileResponse,
     responses=AUDIO_RESPONSES,
+    operation_id="audio_stream_project_final",
 )
 def stream_final_audio(project_id: str, request: Request) -> FileResponse:
     return _audio_response(_latest_final_audio_path(project_id, request))
@@ -44,6 +95,7 @@ def stream_final_audio(project_id: str, request: Request) -> FileResponse:
     "/jobs/{job_id}/audio/final",
     response_class=FileResponse,
     responses=AUDIO_RESPONSES,
+    operation_id="audio_download_job_final",
 )
 def download_job_audio(job_id: str, request: Request) -> FileResponse:
     return _audio_response(
@@ -56,6 +108,7 @@ def download_job_audio(job_id: str, request: Request) -> FileResponse:
     "/jobs/{job_id}/audio/stream",
     response_class=FileResponse,
     responses=AUDIO_RESPONSES,
+    operation_id="audio_stream_job_final",
 )
 def stream_job_audio(job_id: str, request: Request) -> FileResponse:
     return _audio_response(_job_final_audio_path(job_id, request))

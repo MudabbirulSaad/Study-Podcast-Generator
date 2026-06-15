@@ -14,11 +14,7 @@ router = APIRouter(prefix="/projects/{project_id}/script", tags=["scripts"])
 
 SAVE_SCRIPT_REQUEST_BODY = {
     "content": {
-        "application/json": {
-            "schema": SaveScriptRequest.model_json_schema(
-                ref_template="#/components/schemas/{model}"
-            )
-        },
+        "application/json": {"schema": {"$ref": "#/components/schemas/SaveScriptRequest"}},
         "multipart/form-data": {
             "schema": {
                 "type": "object",
@@ -41,6 +37,7 @@ SAVE_SCRIPT_REQUEST_BODY = {
     response_model=ScriptResponse,
     responses={400: BAD_REQUEST_RESPONSE},
     openapi_extra={"requestBody": SAVE_SCRIPT_REQUEST_BODY},
+    operation_id="scripts_save",
 )
 async def save_script(project_id: str, request: Request) -> ScriptResponse:
     payload = await _script_payload_from_request(request)
@@ -52,7 +49,12 @@ async def save_script(project_id: str, request: Request) -> ScriptResponse:
     return ScriptResponse.from_domain(script, chunks)
 
 
-@router.get("", response_model=ScriptResponse, responses={404: NOT_FOUND_RESPONSE})
+@router.get(
+    "",
+    response_model=ScriptResponse,
+    responses={404: NOT_FOUND_RESPONSE},
+    operation_id="scripts_get",
+)
 def get_script(project_id: str, request: Request) -> ScriptResponse:
     script, chunks = request.app.state.container.script_endpoint.get_script(project_id)
     return ScriptResponse.from_domain(script, chunks)

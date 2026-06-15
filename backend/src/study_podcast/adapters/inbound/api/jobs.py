@@ -17,6 +17,7 @@ router = APIRouter(tags=["jobs"])
     response_model=JobResponse,
     status_code=status.HTTP_202_ACCEPTED,
     responses={400: BAD_REQUEST_RESPONSE, 409: CONFLICT_RESPONSE},
+    operation_id="jobs_submit",
 )
 def submit_job(
     project_id: str,
@@ -32,7 +33,7 @@ def submit_job(
     return JobResponse.from_domain(result.job, result.snapshot)
 
 
-@router.get("/jobs", response_model=list[JobResponse])
+@router.get("/jobs", response_model=list[JobResponse], operation_id="jobs_list")
 def list_jobs(
     request: Request,
     status: str | None = None,
@@ -47,7 +48,12 @@ def list_jobs(
     return [JobResponse.from_domain(result.job, result.snapshot) for result in results]
 
 
-@router.get("/jobs/{job_id}", response_model=JobResponse, responses={404: NOT_FOUND_RESPONSE})
+@router.get(
+    "/jobs/{job_id}",
+    response_model=JobResponse,
+    responses={404: NOT_FOUND_RESPONSE},
+    operation_id="jobs_get",
+)
 def get_job(job_id: str, request: Request) -> JobResponse:
     result = request.app.state.container.generation_jobs.get(job_id)
     return JobResponse.from_domain(result.job, result.snapshot)
@@ -57,6 +63,7 @@ def get_job(job_id: str, request: Request) -> JobResponse:
     "/jobs/{job_id}/cancel",
     response_model=JobResponse,
     responses={400: BAD_REQUEST_RESPONSE},
+    operation_id="jobs_cancel",
 )
 def cancel_job(job_id: str, request: Request) -> JobResponse:
     result = request.app.state.container.generation_jobs.cancel(job_id)
@@ -72,6 +79,7 @@ def cancel_job(job_id: str, request: Request) -> JobResponse:
         404: NOT_FOUND_RESPONSE,
         409: CONFLICT_RESPONSE,
     },
+    operation_id="jobs_rerun",
 )
 def rerun_job(job_id: str, request: Request) -> JobResponse:
     result = request.app.state.container.generation_jobs.rerun(job_id)
@@ -82,6 +90,7 @@ def rerun_job(job_id: str, request: Request) -> JobResponse:
     "/jobs/{job_id}/script",
     response_model=ScriptResponse,
     responses={404: NOT_FOUND_RESPONSE},
+    operation_id="jobs_get_script",
 )
 def get_job_script(job_id: str, request: Request) -> ScriptResponse:
     snapshot = request.app.state.container.generation_jobs.get_script_snapshot(job_id)

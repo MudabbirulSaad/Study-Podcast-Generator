@@ -1,5 +1,5 @@
 from datetime import datetime
-from typing import Literal
+from typing import Annotated, Literal
 
 from pydantic import BaseModel, ConfigDict, Field
 
@@ -25,10 +25,13 @@ BAD_REQUEST_RESPONSE = {"model": ErrorResponse, "description": "Bad Request"}
 NOT_FOUND_RESPONSE = {"model": ErrorResponse, "description": "Not Found"}
 CONFLICT_RESPONSE = {"model": ErrorResponse, "description": "Conflict"}
 RuntimeStatus = Literal["idle", "reload_pending", "reloading", "ready", "failed"]
+NonNegativeInt = Annotated[int, Field(ge=0)]
+PositiveInt = Annotated[int, Field(ge=1)]
+ProgressPercent = Annotated[int, Field(ge=0, le=100)]
 
 
 class CreateProjectRequest(BaseModel):
-    title: str
+    title: str = Field(json_schema_extra={"minLength": 1})
 
 
 class ProjectResponse(BaseModel):
@@ -48,7 +51,7 @@ class ProjectDetailResponse(ProjectResponse):
 
 
 class SaveScriptRequest(BaseModel):
-    text: str
+    text: str = Field(json_schema_extra={"minLength": 1})
     source: ScriptSource = ScriptSource.PASTED
 
 
@@ -58,7 +61,7 @@ class StartJobRequest(BaseModel):
 
 
 class ChunkResponse(BaseModel):
-    index: int
+    index: NonNegativeInt
     speaker: str
     text: str
 
@@ -94,10 +97,10 @@ class JobResponse(BaseModel):
     project_id: str
     status: JobStatus
     phase: JobPhase
-    progress_percent: int
-    total_chunks: int
-    completed_chunks: int
-    current_chunk_index: int | None
+    progress_percent: ProgressPercent
+    total_chunks: NonNegativeInt
+    completed_chunks: NonNegativeInt
+    current_chunk_index: NonNegativeInt | None
     current_chunk_preview: str | None
     message: str
     failure_reason: str | None
@@ -148,12 +151,12 @@ class JobSnapshotResponse(BaseModel):
 
 
 class QueueResponse(BaseModel):
-    pending_count: int
-    running_count: int
-    completed_count: int
-    max_active_jobs_total: int
-    concurrency_limits: dict[str, int]
-    queue_positions: dict[str, int]
+    pending_count: NonNegativeInt
+    running_count: NonNegativeInt
+    completed_count: NonNegativeInt
+    max_active_jobs_total: PositiveInt
+    concurrency_limits: dict[str, NonNegativeInt]
+    queue_positions: dict[str, NonNegativeInt]
 
     @classmethod
     def from_domain(cls, summary: QueueSummary) -> "QueueResponse":

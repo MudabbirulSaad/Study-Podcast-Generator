@@ -335,3 +335,35 @@ def test_missing_resource_uses_error_envelope(tmp_path) -> None:
         "message": "job not found",
         "details": None,
     }
+
+
+def test_domain_error_missing_resource_cases_remain_bad_request(tmp_path) -> None:
+    client = TestClient(
+        create_app(Settings(database_path=":memory:", env_file_path=tmp_path / ".env"))
+    )
+
+    save_script = client.put(
+        "/api/v1/projects/missing/script",
+        json={"text": "Notes", "source": "pasted"},
+    )
+    submit_job = client.post("/api/v1/projects/missing/jobs")
+    cancel_job = client.post("/api/v1/jobs/missing/cancel")
+
+    assert save_script.status_code == 400
+    assert save_script.json() == {
+        "code": "domain_error",
+        "message": "project not found",
+        "details": None,
+    }
+    assert submit_job.status_code == 400
+    assert submit_job.json() == {
+        "code": "domain_error",
+        "message": "script not found",
+        "details": None,
+    }
+    assert cancel_job.status_code == 400
+    assert cancel_job.json() == {
+        "code": "domain_error",
+        "message": "job not found",
+        "details": None,
+    }

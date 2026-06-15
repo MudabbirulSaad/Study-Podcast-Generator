@@ -5,6 +5,6 @@ from study_podcast.adapters.inbound.api.schemas import QueueResponse
 router = APIRouter(prefix="/queue", tags=["queue"])
 
 
-@router.get("", response_model=QueueResponse)
+@router.get("", response_model=QueueResponse, operation_id="queue_summary")
 def queue_summary(request: Request) -> QueueResponse:
     return QueueResponse.from_domain(request.app.state.container.generation_queue.summary())

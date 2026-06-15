@@ -6,8 +6,30 @@ from study_podcast.adapters.inbound.api.schemas import BAD_REQUEST_RESPONSE, Voi
 
 router = APIRouter(prefix="/voices", tags=["voices"])
 
+VOICE_UPLOAD_REQUEST_BODY = {
+    "content": {
+        "multipart/form-data": {
+            "schema": {
+                "type": "object",
+                "required": ["display_name", "file"],
+                "properties": {
+                    "display_name": {
+                        "type": "string",
+                        "minLength": 1,
+                    },
+                    "file": {
+                        "type": "string",
+                        "format": "binary",
+                    },
+                },
+            }
+        }
+    },
+    "required": True,
+}
 
-@router.get("", response_model=list[VoiceProfileResponse])
+
+@router.get("", response_model=list[VoiceProfileResponse], operation_id="voices_list")
 def list_voices(request: Request) -> list[VoiceProfileResponse]:
     return [
         VoiceProfileResponse.from_domain(profile)
@@ -20,6 +42,8 @@ def list_voices(request: Request) -> list[VoiceProfileResponse]:
     response_model=VoiceProfileResponse,
     status_code=status.HTTP_201_CREATED,
     responses={400: BAD_REQUEST_RESPONSE},
+    openapi_extra={"requestBody": VOICE_UPLOAD_REQUEST_BODY},
+    operation_id="voices_upload",
 )
 async def upload_voice(
     request: Request,

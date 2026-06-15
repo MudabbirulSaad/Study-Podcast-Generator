@@ -1,5 +1,6 @@
 from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
+from fastapi.openapi.utils import get_openapi
 from fastapi.responses import FileResponse, JSONResponse
 from fastapi.staticfiles import StaticFiles
 
@@ -13,6 +14,7 @@ from study_podcast.adapters.inbound.api import (
     voices,
 )
 from study_podcast.adapters.inbound.api.errors import register_error_handlers
+from study_podcast.adapters.inbound.api.schemas import SaveScriptRequest
 from study_podcast.infrastructure.config import Settings
 from study_podcast.infrastructure.container import Container
 from study_podcast.infrastructure.startup_recovery import mark_unfinished_jobs_interrupted
@@ -42,8 +44,33 @@ def create_app(settings_override: Settings | None = None) -> FastAPI:
         voices.router,
     ):
         app.include_router(router, prefix="/api/v1")
+    _configure_openapi(app)
     _configure_frontend_static(app, container.settings)
     return app
+
+
+def _configure_openapi(app: FastAPI) -> None:
+    def custom_openapi() -> dict:
+        if app.openapi_schema:
+            return app.openapi_schema
+
+        schema = get_openapi(
+            title=app.title,
+            version=app.version,
+            routes=app.routes,
+        )
+        save_script_schema = SaveScriptRequest.model_json_schema(
+            ref_template="#/components/schemas/{model}"
+        )
+        save_script_schema.pop("$defs", None)
+        schemas = schema.setdefault("components", {}).setdefault("schemas", {})
+        schemas["SaveScriptRequest"] = save_script_schema
+        schemas.pop("Body_voices_upload", None)
+        schema["paths"]["/api/v1/voices"]["post"]["requestBody"] = voices.VOICE_UPLOAD_REQUEST_BODY
+        app.openapi_schema = schema
+        return app.openapi_schema
+
+    app.openapi = custom_openapi
 
 
 def _configure_frontend_static(app: FastAPI, settings: Settings) -> None:

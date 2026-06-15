@@ -12,7 +12,7 @@ from study_podcast.adapters.inbound.api.schemas import (
 router = APIRouter(prefix="/settings", tags=["settings"])
 
 
-@router.get("", response_model=RuntimeSettingsResponse)
+@router.get("", response_model=RuntimeSettingsResponse, operation_id="settings_get")
 def get_runtime_settings(request: Request) -> RuntimeSettingsResponse:
     container = request.app.state.container
     settings_route = container.runtime_settings_endpoint
@@ -26,7 +26,12 @@ def get_runtime_settings(request: Request) -> RuntimeSettingsResponse:
     )
 
 
-@router.put("", response_model=RuntimeSettingsResponse, responses={400: BAD_REQUEST_RESPONSE})
+@router.put(
+    "",
+    response_model=RuntimeSettingsResponse,
+    responses={400: BAD_REQUEST_RESPONSE},
+    operation_id="settings_update",
+)
 def update_runtime_settings(
     payload: UpdateRuntimeSettingsRequest,
     request: Request,
@@ -40,13 +45,18 @@ def update_runtime_settings(
     response_model=RuntimeStatusResponse,
     status_code=status.HTTP_202_ACCEPTED,
     responses={400: BAD_REQUEST_RESPONSE},
+    operation_id="settings_reload",
 )
 def reload_runtime_settings(request: Request) -> RuntimeStatusResponse:
     request.app.state.container.runtime_settings_endpoint.reload()
     return get_runtime_status(request)
 
 
-@router.get("/runtime-status", response_model=RuntimeStatusResponse)
+@router.get(
+    "/runtime-status",
+    response_model=RuntimeStatusResponse,
+    operation_id="settings_runtime_status",
+)
 def get_runtime_status(request: Request) -> RuntimeStatusResponse:
     container = request.app.state.container
     settings_route = container.runtime_settings_endpoint
@@ -58,7 +68,11 @@ def get_runtime_status(request: Request) -> RuntimeStatusResponse:
     )
 
 
-@router.get("/tts-engines", response_model=TtsEngineSettingsResponse)
+@router.get(
+    "/tts-engines",
+    response_model=TtsEngineSettingsResponse,
+    operation_id="settings_get_tts_engines",
+)
 def get_tts_engines(request: Request) -> TtsEngineSettingsResponse:
     container = request.app.state.container
     settings_route = container.runtime_settings_endpoint
@@ -69,7 +83,10 @@ def get_tts_engines(request: Request) -> TtsEngineSettingsResponse:
 
 
 @router.put(
-    "/tts-engine", response_model=TtsEngineSettingsResponse, responses={400: BAD_REQUEST_RESPONSE}
+    "/tts-engine",
+    response_model=TtsEngineSettingsResponse,
+    responses={400: BAD_REQUEST_RESPONSE},
+    operation_id="settings_update_tts_engine",
 )
 def update_tts_engine(
     payload: UpdateTtsEngineRequest,
