@@ -9,6 +9,7 @@ from study_podcast.application.generation_job_commands import (
     RerunGenerationJob,
     SubmitGenerationJob,
 )
+from study_podcast.application.read_models import JobReadModel
 
 router = APIRouter(tags=["jobs"])
 
@@ -51,42 +52,19 @@ def list_jobs(
     q: str | None = None,
 ) -> list[JobResponse]:
     container = request.app.state.container
-    statuses = set(status.split(",")) if status else None
-    jobs = container.jobs.list()
-    if statuses is not None:
-        jobs = [job for job in jobs if job.status.value in statuses]
-    if project_id is not None:
-        jobs = [job for job in jobs if job.project_id == project_id]
-    if q:
-        query = q.casefold()
-
-        def matches_query(job_id: str) -> bool:
-            job = container.jobs.get(job_id)
-            if job is None:
-                return False
-            snapshot = container.snapshots.get(job.id)
-            searchable = [
-                job.id,
-                job.project_id,
-                job.status.value,
-                job.phase.value,
-                job.message,
-                job.failure_reason or "",
-                snapshot.script_text if snapshot is not None else "",
-            ]
-            return any(query in value.casefold() for value in searchable)
-
-        jobs = [job for job in jobs if matches_query(job.id)]
-    return [JobResponse.from_domain(job, container.snapshots.get(job.id)) for job in jobs]
+    results = JobReadModel(container.jobs, container.snapshots).list(
+        status=status,
+        project_id=project_id,
+        q=q,
+    )
+    return [JobResponse.from_domain(result.job, result.snapshot) for result in results]
 
 
 @router.get("/jobs/{job_id}", response_model=JobResponse)
 def get_job(job_id: str, request: Request) -> JobResponse:
-    job = request.app.state.container.jobs.get(job_id)
-    if job is None:
-        raise KeyError("job not found")
-    snapshot = request.app.state.container.snapshots.get(job_id)
-    return JobResponse.from_domain(job, snapshot)
+    container = request.app.state.container
+    result = JobReadModel(container.jobs, container.snapshots).get(job_id)
+    return JobResponse.from_domain(result.job, result.snapshot)
 
 
 @router.post("/jobs/{job_id}/cancel", response_model=JobResponse)
@@ -119,9 +97,7 @@ def rerun_job(job_id: str, request: Request) -> JobResponse:
 @router.get("/jobs/{job_id}/script", response_model=ScriptResponse)
 def get_job_script(job_id: str, request: Request) -> ScriptResponse:
     container = request.app.state.container
-    snapshot = container.snapshots.get(job_id)
-    if snapshot is None:
-        raise KeyError("job snapshot not found")
+    snapshot = JobReadModel(container.jobs, container.snapshots).get_script_snapshot(job_id)
     return ScriptResponse(
         project_id=snapshot.project_id,
         text=snapshot.script_text,
