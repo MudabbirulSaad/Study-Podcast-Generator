@@ -60,13 +60,13 @@ async function postUploadRequest<T>(path: string, formData: FormData): Promise<T
 
 export type ApiClient = {
   createProject(title: string): Promise<Project>;
-  listProjects(): Promise<Project[]>;
+  listProjects(filters?: { q?: string }): Promise<Project[]>;
   getProject(projectId: string): Promise<ProjectDetail>;
   getScript(projectId: string): Promise<ScriptResponse>;
   saveScript(projectId: string, text: string): Promise<ScriptResponse>;
   uploadScript(projectId: string, file: File): Promise<ScriptResponse>;
   startJob(projectId: string, input?: StartJobInput): Promise<Job>;
-  listJobs(filters?: { status?: string; projectId?: string }): Promise<Job[]>;
+  listJobs(filters?: { status?: string; projectId?: string; q?: string }): Promise<Job[]>;
   getJob(jobId: string): Promise<Job>;
   cancelJob(jobId: string): Promise<Job>;
   rerunJob(jobId: string): Promise<Job>;
@@ -91,7 +91,14 @@ export const apiClient: ApiClient = {
       method: "POST",
       body: JSON.stringify({ title }),
     }),
-  listProjects: () => request<Project[]>("/projects"),
+  listProjects: (filters) => {
+    const params = new URLSearchParams();
+    if (filters?.q) {
+      params.set("q", filters.q);
+    }
+    const query = params.toString();
+    return request<Project[]>(`/projects${query ? `?${query}` : ""}`);
+  },
   getProject: (projectId) => request<ProjectDetail>(`/projects/${projectId}`),
   getScript: (projectId) => request<ScriptResponse>(`/projects/${projectId}/script`),
   saveScript: (projectId, text) =>
@@ -116,6 +123,9 @@ export const apiClient: ApiClient = {
     }
     if (filters?.projectId) {
       params.set("project_id", filters.projectId);
+    }
+    if (filters?.q) {
+      params.set("q", filters.q);
     }
     const query = params.toString();
     return request<Job[]>(`/jobs${query ? `?${query}` : ""}`);

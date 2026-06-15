@@ -1,6 +1,6 @@
-import { render, screen } from "@testing-library/react";
+import { fireEvent, render, screen } from "@testing-library/react";
 import { MemoryRouter } from "react-router-dom";
-import { describe, expect, it } from "vitest";
+import { beforeEach, describe, expect, it } from "vitest";
 
 import type { ApiClient } from "../api/client";
 import { App } from "../routes/App";
@@ -94,6 +94,11 @@ const client: ApiClient = {
 };
 
 describe("App", () => {
+  beforeEach(() => {
+    window.localStorage.clear();
+    document.documentElement.removeAttribute("data-theme");
+  });
+
   it("renders the product name", () => {
     render(
       <MemoryRouter>
@@ -112,5 +117,18 @@ describe("App", () => {
     );
 
     expect(screen.getByRole("heading", { name: "Generation Jobs" })).toBeInTheDocument();
+  });
+
+  it("persists the selected theme", () => {
+    render(
+      <MemoryRouter>
+        <App client={client} />
+      </MemoryRouter>,
+    );
+
+    fireEvent.click(screen.getByRole("button", { name: "Theme: system" }));
+
+    expect(window.localStorage.getItem("studycast-theme")).toBe("dark");
+    expect(document.documentElement.dataset.theme).toBe("dark");
   });
 });

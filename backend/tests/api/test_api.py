@@ -79,6 +79,20 @@ def test_projects_are_listed_newest_first_and_detail_includes_summary(tmp_path) 
     assert detail["latest_jobs"][0]["id"] == job["id"]
 
 
+def test_project_list_supports_case_insensitive_search(tmp_path) -> None:
+    client = TestClient(
+        create_app(
+            Settings(database_path=tmp_path / "app.sqlite3", env_file_path=tmp_path / ".env")
+        )
+    )
+    biology = client.post("/api/v1/projects", json={"title": "Biology 101"}).json()
+    client.post("/api/v1/projects", json={"title": "Operating Systems"}).json()
+
+    projects = client.get("/api/v1/projects?q=bio").json()
+
+    assert [project["id"] for project in projects] == [biology["id"]]
+
+
 def test_generation_job_stores_immutable_script_snapshot_and_can_rerun(tmp_path) -> None:
     client = TestClient(
         create_app(
@@ -118,6 +132,34 @@ def test_generation_job_stores_immutable_script_snapshot_and_can_rerun(tmp_path)
     assert rerun["status"] == "queued"
     assert rerun["id"] != job["id"]
     assert rerun_script.json()["text"] == "[S1] Original script."
+
+
+def test_job_list_supports_search_across_metadata_and_snapshot(tmp_path) -> None:
+    client = TestClient(
+        create_app(
+            Settings(
+                database_path=tmp_path / "app.sqlite3",
+                env_file_path=tmp_path / ".env",
+                auto_start_worker_pool=False,
+            )
+        )
+    )
+    os_project = client.post("/api/v1/projects", json={"title": "OS"}).json()
+    bio_project = client.post("/api/v1/projects", json={"title": "Biology"}).json()
+    client.put(
+        f"/api/v1/projects/{os_project['id']}/script",
+        json={"text": "[S1] Semaphore scheduling notes.", "source": "pasted"},
+    )
+    client.put(
+        f"/api/v1/projects/{bio_project['id']}/script",
+        json={"text": "[S1] Cellular respiration.", "source": "pasted"},
+    )
+    os_job = client.post(f"/api/v1/projects/{os_project['id']}/jobs").json()
+    client.post(f"/api/v1/projects/{bio_project['id']}/jobs").json()
+
+    jobs = client.get("/api/v1/jobs?q=semaphore").json()
+
+    assert [job["id"] for job in jobs] == [os_job["id"]]
 
 
 def test_cancel_job_api(tmp_path) -> None:

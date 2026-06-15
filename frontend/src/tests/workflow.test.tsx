@@ -205,6 +205,38 @@ describe("workflow UI", () => {
     expect(screen.getByDisplayValue("[S1] Cells divide.")).toBeInTheDocument();
   });
 
+  it("searches the project library through the API", async () => {
+    const client = makeClient();
+    const projects: Project[] = [
+      {
+        id: "project-1",
+        title: "Biology 101",
+        created_at: now,
+        updated_at: now,
+      },
+      {
+        id: "project-2",
+        title: "Operating Systems",
+        created_at: now,
+        updated_at: now,
+      },
+    ];
+    client.listProjects = async (filters) =>
+      projects.filter((project) => !filters?.q || project.title.toLowerCase().includes(filters.q.toLowerCase()));
+
+    render(
+      <MemoryRouter>
+        <App client={client} />
+      </MemoryRouter>,
+    );
+
+    expect(await screen.findByRole("button", { name: "Biology 101" })).toBeInTheDocument();
+    fireEvent.change(screen.getByLabelText("Search projects"), { target: { value: "operating" } });
+
+    expect(await screen.findByRole("button", { name: "Operating Systems" })).toBeInTheDocument();
+    await waitFor(() => expect(screen.queryByRole("button", { name: "Biology 101" })).not.toBeInTheDocument());
+  });
+
   it("creates a project, previews chunks, starts and cancels a job", async () => {
     render(
       <MemoryRouter>
@@ -336,6 +368,37 @@ describe("workflow UI", () => {
     expect(await screen.findByText("[S1] Cells divide.")).toBeInTheDocument();
     fireEvent.click(screen.getByRole("button", { name: "Rerun" }));
     await waitFor(() => expect(screen.getByText("job-1")).toBeInTheDocument());
+  });
+
+  it("searches jobs through the API", async () => {
+    const client = makeClient();
+    let lastQuery = "";
+    client.listJobs = async (filters) => {
+      lastQuery = filters?.q ?? "";
+      return [
+        makeJob({
+          id: "job-2",
+          project_id: "project-2",
+          status: "failed",
+          phase: "synthesizing",
+          progress_percent: 45,
+          completed_chunks: 1,
+          message: "script not found",
+          failure_reason: "script not found",
+        }),
+      ];
+    };
+
+    render(
+      <MemoryRouter initialEntries={["/jobs"]}>
+        <App client={client} />
+      </MemoryRouter>,
+    );
+
+    fireEvent.change(await screen.findByLabelText("Search jobs"), { target: { value: "script" } });
+
+    await waitFor(() => expect(lastQuery).toBe("script"));
+    expect(await screen.findByText("job-2")).toBeInTheDocument();
   });
 
   it("keeps job history visible when queue summary fails", async () => {

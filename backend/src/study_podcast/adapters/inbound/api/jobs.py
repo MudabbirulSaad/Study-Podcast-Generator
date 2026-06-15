@@ -56,6 +56,7 @@ def list_jobs(
     request: Request,
     status: str | None = None,
     project_id: str | None = None,
+    q: str | None = None,
 ) -> list[JobResponse]:
     container = request.app.state.container
     statuses = set(status.split(",")) if status else None
@@ -64,6 +65,26 @@ def list_jobs(
         jobs = [job for job in jobs if job.status.value in statuses]
     if project_id is not None:
         jobs = [job for job in jobs if job.project_id == project_id]
+    if q:
+        query = q.casefold()
+
+        def matches_query(job_id: str) -> bool:
+            job = container.jobs.get(job_id)
+            if job is None:
+                return False
+            snapshot = container.snapshots.get(job.id)
+            searchable = [
+                job.id,
+                job.project_id,
+                job.status.value,
+                job.phase.value,
+                job.message,
+                job.failure_reason or "",
+                snapshot.script_text if snapshot is not None else "",
+            ]
+            return any(query in value.casefold() for value in searchable)
+
+        jobs = [job for job in jobs if matches_query(job.id)]
     return [JobResponse.from_domain(job, container.snapshots.get(job.id)) for job in jobs]
 
 

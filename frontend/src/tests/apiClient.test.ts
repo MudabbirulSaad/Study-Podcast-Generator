@@ -38,6 +38,19 @@ describe("apiClient", () => {
     );
   });
 
+  it("sends search filters as query parameters", async () => {
+    const fetchMock = vi.fn(
+      async () => new Response("[]", { status: 200, headers: { "Content-Type": "application/json" } }),
+    );
+    vi.stubGlobal("fetch", fetchMock);
+
+    await apiClient.listProjects({ q: "biology" });
+    await apiClient.listJobs({ q: "semaphore" });
+
+    expect(fetchMock).toHaveBeenNthCalledWith(1, "/api/v1/projects?q=biology", expect.any(Object));
+    expect(fetchMock).toHaveBeenNthCalledWith(2, "/api/v1/jobs?q=semaphore", expect.any(Object));
+  });
+
   it("throws a stable envelope for non-json error responses", async () => {
     vi.stubGlobal(
       "fetch",

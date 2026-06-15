@@ -19,11 +19,12 @@ def create_project(payload: CreateProjectRequest, request: Request) -> ProjectRe
 
 
 @router.get("", response_model=list[ProjectResponse])
-def list_projects(request: Request) -> list[ProjectResponse]:
-    return [
-        ProjectResponse.from_domain(project)
-        for project in request.app.state.container.projects.list()
-    ]
+def list_projects(request: Request, q: str | None = None) -> list[ProjectResponse]:
+    projects = request.app.state.container.projects.list()
+    if q:
+        query = q.casefold()
+        projects = [project for project in projects if query in project.title.casefold()]
+    return [ProjectResponse.from_domain(project) for project in projects]
 
 
 @router.get("/{project_id}", response_model=ProjectDetailResponse)

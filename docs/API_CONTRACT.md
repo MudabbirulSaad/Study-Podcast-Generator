@@ -4,7 +4,8 @@ Base path: `/api/v1`
 
 ## Projects
 - `POST /projects`
-- `GET /projects` returns persisted projects newest first.
+- `GET /projects?q=<text>` returns persisted projects newest first, optionally filtering by
+  case-insensitive title search.
 - `GET /projects/{project_id}` returns project details, active-script presence, and latest jobs.
 
 ## Active Script
@@ -15,7 +16,9 @@ V1 supports one active script per project. Multiple script versions are reserved
 
 ## Jobs And Queue
 - `POST /projects/{project_id}/jobs` accepts optional `voice_profile_id` and `tts_params`.
-- `GET /jobs?status=completed&project_id=<id>` lists jobs with optional filters.
+- `GET /jobs?status=completed&project_id=<id>&q=<text>` lists jobs with optional filters.
+  Search matches job id, project id, status, phase, message, failure reason, and saved snapshot
+  script text.
 - `GET /jobs/{job_id}` returns progress plus snapshot summary when available.
 - `POST /jobs/{job_id}/cancel`
 - `POST /jobs/{job_id}/rerun`

@@ -1,4 +1,4 @@
-import { Download, Pause, Play, RotateCcw, RotateCw, Volume2 } from "lucide-react";
+import { Download, Pause, Play, RotateCcw, RotateCw, Volume2, Waves } from "lucide-react";
 import { useRef, useState } from "react";
 
 type AudioPlayerProps = {
@@ -25,16 +25,21 @@ export function AudioPlayer({ src, downloadUrl }: AudioPlayerProps) {
   const [volume, setVolume] = useState(1);
   const [speed, setSpeed] = useState(1);
   const [error, setError] = useState("");
+  const [isReady, setIsReady] = useState(false);
 
   async function togglePlayback() {
     const audio = audioRef.current;
-    if (!audio) {
+    if (!audio || !src) {
       return;
     }
     setError("");
     if (audio.paused) {
-      await audio.play();
-      setIsPlaying(true);
+      try {
+        await audio.play();
+        setIsPlaying(true);
+      } catch {
+        setError("Audio could not be played.");
+      }
     } else {
       audio.pause();
       setIsPlaying(false);
@@ -76,38 +81,62 @@ export function AudioPlayer({ src, downloadUrl }: AudioPlayerProps) {
         aria-label="Generated podcast audio source"
         ref={audioRef}
         src={src}
+        onCanPlay={() => setIsReady(true)}
         onEnded={() => setIsPlaying(false)}
-        onError={() => setError("Audio could not be loaded.")}
-        onLoadedMetadata={(event) => setDuration(event.currentTarget.duration)}
+        onError={() => {
+          setIsReady(false);
+          setError("Audio could not be loaded.");
+        }}
+        onLoadedMetadata={(event) => {
+          setDuration(event.currentTarget.duration);
+          setIsReady(true);
+        }}
         onTimeUpdate={(event) => setCurrentTime(event.currentTarget.currentTime)}
       >
         <track kind="captions" />
       </audio>
-      <div className="player-controls">
-        <button className="icon-button" onClick={() => skip(-15)} aria-label="Skip back 15 seconds">
-          <RotateCcw aria-hidden="true" />
-        </button>
-        <button className="icon-button" onClick={togglePlayback} aria-label={isPlaying ? "Pause" : "Play"}>
-          {isPlaying ? <Pause aria-hidden="true" /> : <Play aria-hidden="true" />}
-        </button>
-        <button className="icon-button" onClick={() => skip(15)} aria-label="Skip forward 15 seconds">
-          <RotateCw aria-hidden="true" />
-        </button>
+
+      <div className="player-topline">
+        <div className="player-title">
+          <Waves aria-hidden="true" />
+          <div>
+            <strong>Generated WAV</strong>
+            <span>{isReady ? "Ready to review" : "Preparing audio"}</span>
+          </div>
+        </div>
         <span className="time-readout">
           {formatTime(currentTime)} / {formatTime(duration)}
         </span>
       </div>
+
       <input
         aria-label="Seek audio"
+        className="timeline"
+        disabled={!src}
         max={duration || 0}
         min={0}
         onChange={(event) => seek(Number(event.target.value))}
         type="range"
         value={currentTime}
       />
+
       <div className="player-controls">
-        <label>
-          Speed
+        <button className="icon-button" onClick={() => skip(-15)} aria-label="Skip back 15 seconds" type="button">
+          <RotateCcw aria-hidden="true" />
+        </button>
+        <button
+          className="icon-button play-button"
+          onClick={togglePlayback}
+          aria-label={isPlaying ? "Pause" : "Play"}
+          type="button"
+        >
+          {isPlaying ? <Pause aria-hidden="true" /> : <Play aria-hidden="true" />}
+        </button>
+        <button className="icon-button" onClick={() => skip(15)} aria-label="Skip forward 15 seconds" type="button">
+          <RotateCw aria-hidden="true" />
+        </button>
+        <label className="compact-select">
+          <span>Speed</span>
           <select
             aria-label="Playback speed"
             value={speed}
@@ -122,6 +151,7 @@ export function AudioPlayer({ src, downloadUrl }: AudioPlayerProps) {
         </label>
         <label className="volume-control">
           <Volume2 aria-hidden="true" />
+          <span className="sr-only">Volume</span>
           <input
             aria-label="Volume"
             max={1}
