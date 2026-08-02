@@ -10,14 +10,14 @@ Local-first web app for turning `.txt` study podcast scripts into WAV audio podc
 | **Approach** | A local FastAPI job pipeline generates WAV audio while a React interface manages scripts, voices, settings, history, and playback. |
 | **Status** | Working local-first application with deterministic development/test audio and an optional Chatterbox production-style engine. |
 | **Technologies** | Python, FastAPI, React, TypeScript, SQLite, `uv`, and Vite. |
-| **Quality** | Hexagonal backend boundaries, queued generation outside request handlers, immutable job snapshots, SQLite persistence, and backend/frontend regression suites. |
+| **Quality** | Hexagonal backend boundaries, explicit queue/worker policy, immutable job snapshots, SQLite persistence, and backend/frontend regression suites. |
 | **Verify** | Run `npm run check:backend` and `npm run check:frontend` from the repository root. |
 
 ## Workflow
 
 1. Create a project and add one active study script.
 2. Select or upload a reusable voice profile.
-3. Submit a generation job; the API returns immediately while the queue performs TTS work.
+3. Submit a generation job. With automatic worker startup enabled by default, submission may drain queued work before responding; with worker startup disabled, it returns before later queue processing.
 4. Inspect the stored snapshot, generation history, and WAV output in the built-in player.
 
 For a dependency-light demonstration, enable the deterministic development TTS engine as documented below. No cloud TTS account is required.
