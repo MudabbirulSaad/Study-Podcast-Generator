@@ -2,6 +2,24 @@
 
 Local-first web app for turning `.txt` study podcast scripts into WAV audio podcasts.
 
+## At a Glance
+
+| | |
+| --- | --- |
+| **Problem** | Turning study notes into reusable spoken material is slow, and cloud-first tools introduce cost, privacy, and reproducibility concerns. |
+| **Approach** | A local FastAPI job pipeline generates WAV audio while a React interface manages scripts, voices, settings, history, and playback. |
+| **Status** | Working local-first application with deterministic development/test audio and an optional Chatterbox production-style engine. |
+| **Quality** | Hexagonal backend boundaries, queued generation outside request handlers, immutable job snapshots, SQLite persistence, and backend/frontend regression suites. |
+
+## Workflow
+
+1. Create a project and add one active study script.
+2. Select or upload a reusable voice profile.
+3. Submit a generation job; the API returns immediately while the queue performs TTS work.
+4. Inspect the stored snapshot, generation history, and WAV output in the built-in player.
+
+For a dependency-light demonstration, enable the deterministic development TTS engine as documented below. No cloud TTS account is required.
+
 ## Overview
 - Backend: Python, FastAPI, `uv`
 - Frontend: React, TypeScript, React Router, Vite
