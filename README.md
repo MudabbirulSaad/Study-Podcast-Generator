@@ -9,7 +9,9 @@ Local-first web app for turning `.txt` study podcast scripts into WAV audio podc
 | **Problem** | Turning study notes into reusable spoken material is slow, and cloud-first tools introduce cost, privacy, and reproducibility concerns. |
 | **Approach** | A local FastAPI job pipeline generates WAV audio while a React interface manages scripts, voices, settings, history, and playback. |
 | **Status** | Working local-first application with deterministic development/test audio and an optional Chatterbox production-style engine. |
+| **Technologies** | Python, FastAPI, React, TypeScript, SQLite, `uv`, and Vite. |
 | **Quality** | Hexagonal backend boundaries, queued generation outside request handlers, immutable job snapshots, SQLite persistence, and backend/frontend regression suites. |
+| **Verify** | Run `npm run check:backend` and `npm run check:frontend` from the repository root. |
 
 ## Workflow
 
